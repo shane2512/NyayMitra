@@ -1,0 +1,27 @@
+SAMPLE EMPLOYMENT CONTRACT
+
+This Employment Agreement ("Agreement") is entered into on [Date] between ABC Corporation ("Company") and [Employee Name] ("Employee").
+
+1. POSITION AND DUTIES
+Employee agrees to serve as [Position Title] and to perform duties as assigned by the Company.
+
+2. COMPENSATION
+Company shall pay Employee a salary of $50,000 per year, payable in monthly installments.
+
+3. TERMINATION
+Either party may terminate this agreement with 30 days written notice. Company may terminate immediately for cause.
+
+4. CONFIDENTIALITY
+Employee agrees to maintain confidentiality of all proprietary information and trade secrets.
+
+5. NON-COMPETE
+Employee agrees not to compete with Company for 2 years after termination within a 50-mile radius.
+
+6. DISPUTE RESOLUTION
+Any disputes shall be resolved through binding arbitration.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement.
+
+Company: ABC Corporation
+Employee: [Signature]
+Date: [Date]
