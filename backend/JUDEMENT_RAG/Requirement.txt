@@ -1,0 +1,48 @@
+Project Title
+Legal Judgement Analysis using a RAG Model with Gemma 2B
+
+Objective
+The primary objective is to create a Retrieval-Augmented Generation (RAG) system that analyzes text from a letter, extracted via an Optical Character Recognition (OCR) tool. This system will reference a knowledge base composed of two PDF documents, Judgement_1.pdf and Judgement_2.pdf, containing legal judgements. Based on the letter's content, the system must identify and return all applicable legal precedents, case citations, and laws mentioned within the provided judgements.
+
+System Workflow
+Data Ingestion and Indexing: The system will load and parse the two PDF documents containing legal judgements. It will extract the text, segment it into logical chunks (e.g., by case, paragraph, or legal argument), generate vector embeddings for each chunk, and store them in a vector database for efficient retrieval.
+
+User Input: The system will accept a plain text string as a query, which is the output from an OCR scan of a physical letter.
+
+Retrieval: The system will use the input text to query the vector database and retrieve the most semantically similar sections from the indexed judgement documents.
+
+Augmentation and Generation: The retrieved text chunks, which represent relevant portions of the judgements, will be combined with the original query to create a comprehensive prompt. This prompt will then be passed to the Gemma 2B model through the Hugging Face API.
+
+Output: The Gemma 2B model will generate a response that summarizes the relevant findings and lists the specific judgements, case citations, and legal principles that apply to the situation described in the input letter.
+
+Functional Requirements
+PDF Document Loader: The application must be able to load and accurately extract all text from the two specified PDF files, Judgement_1.pdf and Judgement_2.pdf.
+
+Text Processing and Chunking: The extracted text must be divided into smaller, contextually relevant chunks. This could be based on case sections, arguments, or paragraphs to maintain the integrity of the legal reasoning.
+
+Vector Embedding and Storage: Each text chunk must be converted into a numerical vector using an appropriate embedding model. These embeddings should be indexed and stored in a local vector database, such as FAISS or ChromaDB, for quick similarity searches.
+
+Query Processing: The system must take the OCR-generated text string as input and generate a corresponding query embedding using the same model as the documents.
+
+Retrieval Component: A retrieval mechanism must perform a similarity search on the vector database to find the top 'k' most relevant chunks of text from the judgements based on the user's query.
+
+LLM Integration: The application must establish a secure connection with the Hugging Face API to use the Gemma 2B model. It should be capable of constructing a well-formed prompt that includes the retrieved judicial context and the original query.
+
+Output Generation: The final output must be a structured response that clearly lists the relevant case names, citations, key arguments from the judgements, and any specific laws or statutes cited within those judgements that are pertinent to the query.
+
+Technical Stack
+Programming Language: Python
+
+Core Libraries:
+
+langchain or llama-index for orchestrating the RAG pipeline.
+
+pypdf or pdfplumber for parsing PDF files.
+
+sentence-transformers for creating text embeddings.
+
+faiss-cpu or chromadb for the vector store.
+
+transformers and huggingface_hub for interacting with the Hugging Face API and Gemma 2B.
+
+python-dotenv for managing the Hugging Face API token.
