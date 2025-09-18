@@ -1,0 +1,52 @@
+# Node.js dependencies
+node_modules/
+frontend/node_modules/
+frontend-nextjs/node_modules/
+
+# Build and cache
+.cache/
+frontend/.cache/
+frontend-nextjs/.next/
+frontend-nextjs/.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Output
+/dist/
+frontend/dist/
+frontend/build/
+
+# Misc
+.env
+*.local
+
+# VS Code settings
+*.code-workspace
+
+# Python
+__pycache__/
+*.pyc
+
+# Ignore large binaries
+*.bin
+*.exe
+*.dll
+*.so
+*.node
+
+# Ignore test coverage
+coverage/
+
+# Ignore lock files (optional)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

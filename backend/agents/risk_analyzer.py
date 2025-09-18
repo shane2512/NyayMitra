@@ -147,16 +147,15 @@ Be strict in your analysis - only mark as Low risk if the clause is truly standa
             "analysis": "Standard contractual language with minimal apparent risk factors."
         }
 
-    def analyze_contract(self, pdf_path):
-        """Main method to analyze entire contract using optimized batch processing"""
-        print(f"[RiskAnalyzer] Starting optimized analysis of: {pdf_path}")
-        
-        # Extract text from PDF
-        text = self.extract_text(pdf_path)
-        print(f"[RiskAnalyzer] Extracted {len(text)} characters of text")
+    def analyze_contract_text(self, contract_text):
+        """Analyze contract from text directly (for testing)"""
+        print(f"[RiskAnalyzer] Starting analysis of contract text: {len(contract_text)} characters")
         
         # Split into clauses
-        clauses = self.split_clauses(text)
+        clauses = self.split_clauses(contract_text)
+        print(f"[RiskAnalyzer] Split into {len(clauses)} clauses")
+        
+        # Filter substantial clauses
         substantial_clauses = [clause for clause in clauses if len(clause.strip()) > 50]
         print(f"[RiskAnalyzer] Found {len(substantial_clauses)} substantial clauses for analysis")
         
@@ -204,3 +203,14 @@ Be strict in your analysis - only mark as Low risk if the clause is truly standa
                 }
         
         return analysis_results
+
+    def analyze_contract(self, pdf_path):
+        """Main method to analyze entire contract using optimized batch processing"""
+        print(f"[RiskAnalyzer] Starting optimized analysis of: {pdf_path}")
+        
+        # Extract text from PDF
+        text = self.extract_text(pdf_path)
+        print(f"[RiskAnalyzer] Extracted {len(text)} characters of text")
+        
+        # Use the text analysis method
+        return self.analyze_contract_text(text)

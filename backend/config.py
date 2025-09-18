@@ -8,8 +8,10 @@ class Config:
     """Configuration settings for the NyayMitra backend application."""
     
     # API keys and other sensitive information
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "your_default_api_key_here")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-pro")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDgZrm7d1htahrLH2KMdVmnOEcQAIWzmys")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "sk_f3dc6582c9543b932c988a5a1f8702c19220766e06f59992")
+    VOICE_ID = os.getenv("VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
     SLEEP_BETWEEN_REQUESTS = float(os.getenv("SLEEP_BETWEEN_REQUESTS", 2))
     
     # Other configurations

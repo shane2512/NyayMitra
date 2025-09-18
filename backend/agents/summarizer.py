@@ -45,16 +45,16 @@ class SummarizerAgent:
             prompt = f"""
 You are a legal expert who explains complex contract terms in simple, plain language for non-lawyers.
 
-Please provide a clear, concise summary of this contract risk analysis that:
-1. Explains the overall risk level of the contract
-2. Highlights the most important concerns in everyday language
-3. Provides actionable recommendations
+Please provide a CONCISE summary (maximum 300 words) of this contract risk analysis that:
+1. Explains the overall risk level of the contract in 1-2 sentences
+2. Highlights the top 2-3 most important concerns in everyday language
+3. Provides 2-3 specific actionable recommendations
 4. Uses a conversational, helpful tone
 5. Avoids legal jargon
 
 {text_input}
 
-Please write a summary that a regular person can understand, focusing on what they should know and what actions they should take.
+Write a brief, focused summary that a regular person can quickly understand. Be direct and specific about what they should know and do. Keep it under 300 words.
 """
 
             print(f"[Summarizer] Generating AI summary...")
@@ -80,8 +80,8 @@ Please write a summary that a regular person can understand, focusing on what th
         total_count = len(risk_report)
         
         if high_count > total_count * 0.4:
-            return f"⚠️ HIGH RISK CONTRACT ⚠️\n\nThis contract contains {high_count} high-risk clauses out of {total_count} total clauses analyzed. We strongly recommend having a lawyer review this contract before signing. The high-risk areas may expose you to significant legal or financial liability.\n\nKey concerns likely include liability limitations, termination clauses, or indemnification requirements. Consider negotiating these terms or seeking legal counsel."
+            return f"⚠️ HIGH RISK CONTRACT\n\nThis contract has {high_count} high-risk clauses out of {total_count} analyzed. We strongly recommend legal review before signing.\n\nRecommendations:\n• Have a lawyer review the contract\n• Negotiate high-risk terms\n• Consider walking away if risks are too high"
         elif high_count > 0:
-            return f"⚠️ MODERATE RISK CONTRACT\n\nThis contract has {high_count} high-risk and {medium_count} medium-risk clauses that need attention out of {total_count} total clauses. While manageable, you should carefully review the flagged sections and consider negotiating better terms.\n\nMost of the contract appears standard, but the identified risk areas could impact your rights or obligations."
+            return f"⚠️ MODERATE RISK CONTRACT\n\nThis contract has {high_count} high-risk and {medium_count} medium-risk clauses out of {total_count} analyzed.\n\nRecommendations:\n• Review flagged sections carefully\n• Consider negotiating problematic terms\n• Seek legal advice for high-risk clauses"
         else:
-            return f"✅ GENERALLY ACCEPTABLE CONTRACT\n\nThis contract appears relatively balanced with {total_count} clauses analyzed. While {medium_count} clauses require some attention, no major red flags were identified.\n\nYou should still read through the document carefully, but the overall risk level appears manageable for most situations."
+            return f"✅ GENERALLY ACCEPTABLE CONTRACT\n\nThis contract appears balanced with {total_count} clauses analyzed and no major red flags.\n\nRecommendations:\n• Read through the document carefully\n• Pay attention to {medium_count} medium-risk clauses\n• Overall risk level is manageable"

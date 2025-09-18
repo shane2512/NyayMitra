@@ -1,17 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Neuton:wght@400;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    --color-midnight: 11 15 25;
+    --color-charcoal: 28 34 48;
+    --color-azure: 79 157 255;
+    --color-teal: 0 200 150;
+    --color-amber: 245 165 36;
+    --color-danger: 246 90 90;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-midnight text-light-gray font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-bold tracking-tight;
+  }
+
+  code {
+    @apply font-mono;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-charcoal/80 backdrop-blur-glass border border-border-dark;
+  }
+
+  /* Premium gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-azure to-teal bg-clip-text text-transparent;
+  }
+
+  /* Premium button hover effect */
+  .btn-glow {
+    @apply transition-all duration-300 hover:shadow-[0_0_30px_rgba(79,157,255,0.5)] hover:scale-105;
+  }
+
+  /* Card hover effect */
+  .card-hover {
+    @apply transition-all duration-300 hover:translate-y-[-4px] hover:shadow-2xl;
+  }
+
+  /* Smooth scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-charcoal;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-border-dark rounded-full hover:bg-muted-gray;
+  }
+}
+
+@layer utilities {
+  /* Text balance for better readability */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Gradient backgrounds */
+  .bg-gradient-premium {
+    background: linear-gradient(135deg, #4F9DFF 0%, #00C896 100%);
+  }
+
+  .bg-gradient-dark {
+    background: linear-gradient(180deg, #0B0F19 0%, #1C2230 100%);
+  }
+
+  /* Animation delays */
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  .animation-delay-600 {
+    animation-delay: 600ms;
+  }
 }

@@ -37,6 +37,11 @@ class ModeratorAgent:
             print(f"[Moderator] Generating AI summary...")
             summary = self.summarizer.summarize(risk_report)
             print(f"[Moderator] Summary generated: {len(summary)} characters")
+            
+            # Validate summary
+            if not summary or len(summary.strip()) < 10:
+                print(f"[Moderator] Warning: Summary is too short or empty, using fallback")
+                summary = self.summarizer._fallback_summary(risk_report)
 
             # Step 4: Run simulation analysis
             print(f"[Moderator] Running simulation analysis...")
@@ -45,6 +50,12 @@ class ModeratorAgent:
 
             # Calculate processing time
             processing_time = round(time.time() - start_time, 2)
+            
+            # Truncate simulation if too large (keep essential data only)
+            if simulation_results and 'simulation' in simulation_results:
+                simulation_text = simulation_results['simulation']
+                if len(simulation_text) > 5000:  # Limit simulation to 5000 chars
+                    simulation_results['simulation'] = simulation_text[:5000] + "\n\n[Response truncated for display...]"
             
             # Combine results into a structured JSON response
             response = {
@@ -56,6 +67,8 @@ class ModeratorAgent:
                 "total_clauses_analyzed": len(risk_report),
                 "status": "success"
             }
+            
+            print(f"[Moderator] Response prepared - Summary: {len(summary)} chars, Status: {response['status']}")
             
             print(f"[Moderator] Analysis complete in {processing_time}s. Status: success")
             return response

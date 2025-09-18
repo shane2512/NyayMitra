@@ -51,11 +51,11 @@ const FileUploader = ({ onFileSelect, isLoading }) => {
       <div
         className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
           dragActive
-            ? 'border-blue-400 bg-blue-50 scale-105'
+            ? 'border-azure bg-charcoal/60 scale-105'
             : selectedFile
             ? 'border-green-300 bg-green-50'
-            : 'border-gray-300 hover:border-blue-300 hover:bg-gray-50'
-        } ${isLoading ? 'opacity-50 pointer-events-none' : ''}`}
+            : 'border-gray-300 hover:border-azure hover:bg-midnight/40'
+        } ${isLoading ? 'opacity-50 pointer-events-none' : ''} text-white`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -105,10 +105,10 @@ const FileUploader = ({ onFileSelect, isLoading }) => {
             </div>
             
             <div>
-              <p className="text-lg font-semibold text-gray-900 mb-2">
+              <p className="text-lg font-semibold text-white-900 mb-2">
                 Upload your contract
               </p>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-white-600 mb-4">
                 Drag and drop your PDF contract here, or click to browse
               </p>
               
