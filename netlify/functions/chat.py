@@ -90,7 +90,7 @@ def transcribe_audio(audio_data: bytes) -> dict:
     except Exception as e:
         raise Exception(f"Audio transcription failed: {str(e)}")
 
-def handler(event, context):
+def main(event, context):
     """
     Netlify function handler for chat functionality.
     """
@@ -328,3 +328,6 @@ def handle_chat_voice(event, context):
             'error': f'Voice synthesis failed: {str(e)}',
             'type': 'voice_error'
         }, 500)
+
+# Netlify Functions entry point
+handler = main

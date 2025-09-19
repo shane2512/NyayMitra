@@ -21,7 +21,7 @@ from agents.rate_limiter import ServerlessRateLimiter
 moderator_agent = ModeratorAgent()
 rate_limiter = ServerlessRateLimiter()
 
-def handler(event, context):
+def main(event, context):
     """
     Netlify function handler for contract analysis.
     """
@@ -112,6 +112,9 @@ def handle_file_upload(event, context):
             'type': 'processing_error'
         }, 500)
 
+# Netlify Functions entry point
+handler = main
+
 # For local testing
 if __name__ == '__main__':
     # Test event
@@ -122,5 +125,5 @@ if __name__ == '__main__':
         'queryStringParameters': {'language': 'en', 'interests': '[]'}
     }
     
-    result = handler(test_event, {})
+    result = main(test_event, {})
     print(json.dumps(result, indent=2))

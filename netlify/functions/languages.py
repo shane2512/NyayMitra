@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import Config
 from utils import create_response, handle_cors
 
-def handler(event, context):
+def main(event, context):
     """
     Netlify function handler for supported languages.
     """
@@ -48,3 +48,6 @@ def handler(event, context):
             'error': f'Languages handler error: {str(e)}',
             'type': 'server_error'
         }, 500)
+
+# Netlify Functions entry point
+handler = main

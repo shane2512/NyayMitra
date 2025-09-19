@@ -18,7 +18,7 @@ from agents.rate_limiter import ServerlessRateLimiter
 # Initialize components
 rate_limiter = ServerlessRateLimiter()
 
-def handler(event, context):
+def main(event, context):
     """
     Netlify function handler for admin functionality.
     """
@@ -225,3 +225,6 @@ def handle_test(event, context):
             'error': f'Configuration test failed: {str(e)}',
             'timestamp': rate_limiter.get_current_time()
         }, 500)
+
+# Netlify Functions entry point
+handler = main
