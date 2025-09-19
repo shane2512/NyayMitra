@@ -11,17 +11,5 @@
       "src": "/api/(.*)",
       "dest": "/api/$1"
     }
-  ],
-  "env": {
-    "GEMINI_API_KEY": "@gemini_api_key",
-    "GEMINI_MODEL": "gemini-2.5-flash",
-    "ELEVEN_API_KEY": "@eleven_api_key",
-    "VOICE_ID": "@voice_id",
-    "SLEEP_BETWEEN_REQUESTS": "10",
-    "MAX_REQUESTS_PER_MINUTE": "8",
-    "BATCH_PROCESSING_SLEEP": "15",
-    "INTER_BATCH_SLEEP": "20",
-    "CIRCUIT_BREAKER_FAILURES": "2",
-    "CIRCUIT_BREAKER_TIMEOUT": "300"
-  }
+  ]
 }
