@@ -129,18 +129,18 @@ class ModeratorAgent:
             }
     
     def _extract_pdf_text(self, pdf_path: str) -> str:
-        """Extract text from PDF file."""
+        """Extract text from PDF file using PyPDF2."""
         try:
-            import fitz  # PyMuPDF
+            import PyPDF2
             
-            doc = fitz.open(pdf_path)
             text = ""
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                
+                for page_num in range(len(pdf_reader.pages)):
+                    page = pdf_reader.pages[page_num]
+                    text += page.extract_text()
             
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                text += page.get_text()
-            
-            doc.close()
             return text.strip()
             
         except Exception as e:

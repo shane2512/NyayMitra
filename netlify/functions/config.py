@@ -25,6 +25,6 @@ class Config:
     DEBUG = os.getenv("DEBUG", "False") == "True"
     
     # Serverless specific
-    TEMP_DIR = "/tmp"  # Vercel temp directory
+    TEMP_DIR = "/tmp"  # Netlify temp directory
     MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
     ALLOWED_EXTENSIONS = {'pdf'}

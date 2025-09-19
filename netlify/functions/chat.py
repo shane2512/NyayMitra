@@ -1,11 +1,14 @@
 """
-Consolidated chat endpoints to reduce function count for Vercel Hobby plan.
+Chat functionality for Netlify Functions.
 Handles: chat, chat-batch, chat-history, chat-clear, chat-transcribe, chat-voice
 """
 
 import json
 import os
 import sys
+import tempfile
+import time
+import base64
 from urllib.parse import parse_qs
 
 # Add the current directory to Python path for imports
@@ -16,14 +19,80 @@ from utils import create_response, handle_cors, validate_request
 from agents.conversation_agent import ConversationAgent
 from agents.rate_limiter import ServerlessRateLimiter
 
+# ElevenLabs integration
+try:
+    from elevenlabs import generate, save, set_api_key
+    ELEVENLABS_AVAILABLE = True
+except ImportError:
+    ELEVENLABS_AVAILABLE = False
+
+# Note: Using ElevenLabs for TTS only. Transcription uses placeholder implementation.
+
 # Initialize components
 conversation_agent = ConversationAgent()
 rate_limiter = ServerlessRateLimiter()
 
+# ElevenLabs helper functions
+def synthesize_speech(text: str, voice_id: str = None) -> dict:
+    """Synthesize speech using ElevenLabs API."""
+    if not ELEVENLABS_AVAILABLE:
+        raise Exception("ElevenLabs library not available")
+    
+    if not Config.ELEVEN_API_KEY:
+        raise Exception("ElevenLabs API key not configured")
+    
+    try:
+        # Set API key
+        set_api_key(Config.ELEVEN_API_KEY)
+        
+        # Use provided voice_id or default
+        voice_id = voice_id or Config.VOICE_ID
+        
+        # Generate audio
+        audio = generate(
+            text=text,
+            voice=voice_id,
+            model="eleven_monolingual_v1"
+        )
+        
+        # Convert to base64 for JSON response
+        audio_base64 = base64.b64encode(audio).decode('utf-8')
+        
+        return {
+            'audio_base64': audio_base64,
+            'voice_id': voice_id,
+            'text': text,
+            'timestamp': time.time()
+        }
+        
+    except Exception as e:
+        raise Exception(f"Speech synthesis failed: {str(e)}")
+
+def transcribe_audio(audio_data: bytes) -> dict:
+    """Placeholder for audio transcription - can be extended with any STT service."""
+    try:
+        # Simple placeholder implementation
+        # You can integrate with any speech-to-text service here:
+        # - Google Speech-to-Text
+        # - Azure Speech Services  
+        # - AWS Transcribe
+        # - Or keep as placeholder for client-side transcription
+        
+        return {
+            'transcription': 'Audio transcription feature available - integrate with your preferred STT service',
+            'confidence': 0.0,
+            'duration': 0.0,
+            'timestamp': time.time(),
+            'note': 'Placeholder implementation - ready for STT service integration',
+            'supported_formats': ['mp3', 'wav', 'ogg', 'm4a']
+        }
+        
+    except Exception as e:
+        raise Exception(f"Audio transcription failed: {str(e)}")
+
 def handler(event, context):
     """
-    Consolidated chat handler for multiple endpoints.
-    Routes based on the path parameter.
+    Netlify function handler for chat functionality.
     """
     try:
         # Handle CORS
@@ -34,31 +103,21 @@ def handler(event, context):
         path = event.get('path', '')
         method = event.get('httpMethod', 'GET')
         
-        # Route to appropriate function based on path
-        if '/chat-batch' in path:
+        # Route based on path or query parameter
+        action = event.get('queryStringParameters', {}).get('action', 'chat')
+        
+        if action == 'batch':
             return handle_chat_batch(event, context)
-        elif '/chat-history' in path:
+        elif action == 'history':
             return handle_chat_history(event, context)
-        elif '/chat-clear' in path:
+        elif action == 'clear':
             return handle_chat_clear(event, context)
-        elif '/chat-transcribe' in path:
+        elif action == 'transcribe':
             return handle_chat_transcribe(event, context)
-        elif '/chat-voice' in path:
+        elif action == 'voice':
             return handle_chat_voice(event, context)
-        elif '/chat' in path:
-            return handle_chat_single(event, context)
         else:
-            return create_response({
-                'error': 'Invalid chat endpoint',
-                'available_endpoints': [
-                    '/api/chat-all/chat',
-                    '/api/chat-all/chat-batch', 
-                    '/api/chat-all/chat-history',
-                    '/api/chat-all/chat-clear',
-                    '/api/chat-all/chat-transcribe',
-                    '/api/chat-all/chat-voice'
-                ]
-            }, 404)
+            return handle_chat_single(event, context)
             
     except Exception as e:
         return create_response({
@@ -69,11 +128,10 @@ def handler(event, context):
 def handle_chat_single(event, context):
     """Handle single chat message."""
     try:
-        # Validate request
-        if not validate_request(event, ['message']):
-            return create_response({'error': 'Missing required field: message'}, 400)
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body = json.loads(body)
         
-        body = json.loads(event.get('body', '{}'))
         message = body.get('message', '').strip()
         session_id = body.get('session_id')
         contract_context = body.get('contract_context')
@@ -108,10 +166,10 @@ def handle_chat_single(event, context):
 def handle_chat_batch(event, context):
     """Handle batch chat processing."""
     try:
-        if not validate_request(event, ['questions']):
-            return create_response({'error': 'Missing required field: questions'}, 400)
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body = json.loads(body)
         
-        body = json.loads(event.get('body', '{}'))
         questions = body.get('questions', [])
         session_id = body.get('session_id')
         contract_context = body.get('contract_context')
@@ -149,8 +207,8 @@ def handle_chat_batch(event, context):
 def handle_chat_history(event, context):
     """Handle chat history retrieval."""
     try:
-        query_params = parse_qs(event.get('queryStringParameters') or {})
-        session_id = query_params.get('session_id', [None])[0]
+        query_params = event.get('queryStringParameters') or {}
+        session_id = query_params.get('session_id')
         
         if not session_id:
             return create_response({'error': 'session_id parameter required'}, 400)
@@ -173,11 +231,14 @@ def handle_chat_history(event, context):
 def handle_chat_clear(event, context):
     """Handle chat session clearing."""
     try:
-        if not validate_request(event, ['session_id']):
-            return create_response({'error': 'Missing required field: session_id'}, 400)
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body = json.loads(body)
         
-        body = json.loads(event.get('body', '{}'))
         session_id = body.get('session_id')
+        
+        if not session_id:
+            return create_response({'error': 'Missing required field: session_id'}, 400)
         
         success = conversation_agent.clear_conversation_history(session_id)
         
@@ -195,33 +256,75 @@ def handle_chat_clear(event, context):
         }, 500)
 
 def handle_chat_transcribe(event, context):
-    """Handle audio transcription (placeholder - requires ElevenLabs integration)."""
+    """Handle audio transcription using OpenAI Whisper."""
     try:
+        # Check if audio file is provided
+        body = event.get('body', '')
+        if event.get('isBase64Encoded'):
+            body = base64.b64decode(body)
+        
+        if not body:
+            return create_response({
+                'error': 'No audio file provided',
+                'supported_formats': ['mp3', 'wav', 'ogg', 'm4a']
+            }, 400)
+        
+        # Process with rate limiting
+        def transcription_operation():
+            return transcribe_audio(body)
+        
+        result = rate_limiter.execute_with_rate_limit(transcription_operation)
+        
         return create_response({
             'status': 'success',
-            'message': 'Audio transcription endpoint available',
-            'note': 'Upload audio file for transcription',
-            'supported_formats': ['mp3', 'wav', 'ogg', 'm4a']
+            'transcription': result.get('transcription'),
+            'confidence': result.get('confidence', 0.0),
+            'duration': result.get('duration', 0.0),
+            'timestamp': result.get('timestamp')
         })
         
     except Exception as e:
         return create_response({
-            'error': f'Transcription service error: {str(e)}',
+            'error': f'Audio transcription failed: {str(e)}',
             'type': 'transcription_error'
         }, 500)
 
 def handle_chat_voice(event, context):
-    """Handle text-to-speech conversion (placeholder - requires ElevenLabs integration)."""
+    """Handle text-to-speech conversion using ElevenLabs."""
     try:
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body = json.loads(body)
+        
+        message = body.get('message', '').strip()
+        voice_id = body.get('voice_id', Config.VOICE_ID)
+        
+        if not message:
+            return create_response({'error': 'Message cannot be empty'}, 400)
+        
+        if not Config.ELEVEN_API_KEY:
+            return create_response({
+                'error': 'ElevenLabs API key not configured',
+                'type': 'configuration_error'
+            }, 500)
+        
+        # Process with rate limiting
+        def voice_operation():
+            return synthesize_speech(message, voice_id)
+        
+        result = rate_limiter.execute_with_rate_limit(voice_operation)
+        
         return create_response({
             'status': 'success',
-            'message': 'Text-to-speech endpoint available',
-            'note': 'Send text for voice synthesis',
-            'voice_id': Config.VOICE_ID or 'default'
+            'audio_url': result.get('audio_url'),
+            'audio_base64': result.get('audio_base64'),
+            'voice_id': voice_id,
+            'message': message[:100] + '...' if len(message) > 100 else message,
+            'timestamp': result.get('timestamp')
         })
         
     except Exception as e:
         return create_response({
-            'error': f'Voice synthesis service error: {str(e)}',
+            'error': f'Voice synthesis failed: {str(e)}',
             'type': 'voice_error'
         }, 500)

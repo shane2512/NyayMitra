@@ -1,6 +1,6 @@
 """
-Consolidated admin endpoints to reduce function count.
-Handles: rate-limit-status, rate-limit-reset, translator-metrics, health, test
+Admin endpoints for Netlify Functions.
+Handles: health, test, rate-limit-status, translator-metrics
 """
 
 import json
@@ -14,48 +14,32 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from config import Config
 from utils import create_response, handle_cors
 from agents.rate_limiter import ServerlessRateLimiter
-from agents.translator import TranslatorAgent
 
 # Initialize components
 rate_limiter = ServerlessRateLimiter()
-translator_agent = TranslatorAgent()
 
 def handler(event, context):
     """
-    Consolidated admin handler for multiple endpoints.
-    Routes based on the path parameter.
+    Netlify function handler for admin functionality.
     """
     try:
         # Handle CORS
         if event.get('httpMethod') == 'OPTIONS':
             return handle_cors()
         
-        # Get the path to determine which function to execute
-        path = event.get('path', '')
-        method = event.get('httpMethod', 'GET')
+        # Route based on query parameter
+        action = event.get('queryStringParameters', {}).get('action', 'health')
         
-        # Route to appropriate function based on path
-        if '/rate-limit-status' in path:
+        if action == 'rate-limit-status':
             return handle_rate_limit_status(event, context)
-        elif '/rate-limit-reset' in path:
+        elif action == 'rate-limit-reset':
             return handle_rate_limit_reset(event, context)
-        elif '/translator-metrics' in path:
+        elif action == 'translator-metrics':
             return handle_translator_metrics(event, context)
-        elif '/health' in path:
-            return handle_health(event, context)
-        elif '/test' in path:
+        elif action == 'test':
             return handle_test(event, context)
         else:
-            return create_response({
-                'error': 'Invalid admin endpoint',
-                'available_endpoints': [
-                    '/api/admin/rate-limit-status',
-                    '/api/admin/rate-limit-reset',
-                    '/api/admin/translator-metrics',
-                    '/api/admin/health',
-                    '/api/admin/test'
-                ]
-            }, 404)
+            return handle_health(event, context)
             
     except Exception as e:
         return create_response({
@@ -166,7 +150,7 @@ def handle_health(event, context):
         health_status = {
             'status': 'healthy',
             'timestamp': rate_limiter.get_current_time(),
-            'version': '2.0.0-serverless',
+            'version': '2.0.0-netlify',
             'environment': 'production' if not Config.DEBUG else 'development',
             'components': {
                 'rate_limiter': 'healthy',
@@ -215,12 +199,11 @@ def handle_test(event, context):
                 'circuit_breaker_failures': Config.CIRCUIT_BREAKER_FAILURES,
                 'circuit_breaker_timeout': Config.CIRCUIT_BREAKER_TIMEOUT
             },
-            'serverless_functions': [
+            'netlify_functions': [
                 'analyze',
-                'chat-all',
+                'chat',
                 'admin', 
-                'languages',
-                'index'
+                'languages'
             ]
         }
         

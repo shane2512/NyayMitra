@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// Serverless API configuration
+// Netlify Functions API configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://nyay-mitra.vercel.app/api' 
-  : 'http://localhost:3000/api';  // Serverless functions via vercel dev
+  ? '/.netlify/functions' 
+  : 'http://localhost:8888/.netlify/functions';  // Netlify dev server
 
 // Add axios defaults for better debugging
 axios.defaults.timeout = 300000; // 5 minutes timeout for long analysis
@@ -45,7 +45,7 @@ export const analyzeContract = async (file, language = 'en', interests = []) => 
 
 export const healthCheck = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/admin/health`);
+    const response = await axios.get(`${API_BASE_URL}/admin?action=health`);
     
     // Handle serverless response format
     if (response.data.body) {
@@ -65,7 +65,7 @@ export const healthCheck = async () => {
 // Chat API functions for serverless
 export const sendChatMessage = async (message, sessionId = null, contractContext = null) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/chat-all/chat`, {
+    const response = await axios.post(`${API_BASE_URL}/chat?action=chat`, {
       message,
       session_id: sessionId,
       contract_context: contractContext
@@ -88,7 +88,7 @@ export const sendChatMessage = async (message, sessionId = null, contractContext
 
 export const sendBatchChatMessage = async (questions, sessionId = null, contractContext = null) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/chat-all/chat-batch`, {
+    const response = await axios.post(`${API_BASE_URL}/chat?action=batch`, {
       questions,
       session_id: sessionId,
       contract_context: contractContext
@@ -111,7 +111,7 @@ export const sendBatchChatMessage = async (questions, sessionId = null, contract
 
 export const getChatHistory = async (sessionId) => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/chat-all/chat-history?session_id=${sessionId}`);
+    const response = await axios.get(`${API_BASE_URL}/chat?action=history&session_id=${sessionId}`);
     
     if (response.data.body) {
       return JSON.parse(response.data.body);
@@ -130,7 +130,7 @@ export const getChatHistory = async (sessionId) => {
 
 export const clearChatSession = async (sessionId) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/chat-all/chat-clear`, {
+    const response = await axios.post(`${API_BASE_URL}/chat?action=clear`, {
       session_id: sessionId
     });
     
@@ -151,7 +151,7 @@ export const clearChatSession = async (sessionId) => {
 
 export const getRateLimitStatus = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/admin/rate-limit-status`);
+    const response = await axios.get(`${API_BASE_URL}/admin?action=rate-limit-status`);
     
     if (response.data.body) {
       return JSON.parse(response.data.body);
@@ -189,7 +189,7 @@ export const getSupportedLanguages = async () => {
 
 export const getTranslatorMetrics = async () => {
   try {
-    const response = await axios.get(`${API_BASE_URL}/admin/translator-metrics`);
+    const response = await axios.get(`${API_BASE_URL}/admin?action=translator-metrics`);
     
     if (response.data.body) {
       return JSON.parse(response.data.body);
@@ -211,7 +211,7 @@ export const transcribeAudio = async (audioFile) => {
     const formData = new FormData();
     formData.append('audio', audioFile);
     
-    const response = await axios.post(`${API_BASE_URL}/chat-all/chat-transcribe`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/chat?action=transcribe`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -234,7 +234,7 @@ export const transcribeAudio = async (audioFile) => {
 
 export const sendVoiceMessage = async (message, sessionId = null, contractContext = null) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/chat-all/chat-voice`, {
+    const response = await axios.post(`${API_BASE_URL}/chat?action=voice`, {
       message,
       session_id: sessionId,
       contract_context: contractContext
