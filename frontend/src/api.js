@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Serverless API configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://your-vercel-app.vercel.app/api' 
+  ? 'https://nyay-mitra.vercel.app/api' 
   : 'http://localhost:3000/api';  // Serverless functions via vercel dev
 
 // Add axios defaults for better debugging

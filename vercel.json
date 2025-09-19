@@ -1,45 +1,17 @@
 {
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/build",
   "functions": {
-    "api/analyze.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat-batch.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat-history.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat-clear.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat-transcribe.py": {
-      "runtime": "python3.9"
-    },
-    "api/chat-voice.py": {
-      "runtime": "python3.9"
-    },
-    "api/rate-limit-status.py": {
-      "runtime": "python3.9"
-    },
-    "api/rate-limit-reset.py": {
-      "runtime": "python3.9"
-    },
-    "api/health.py": {
-      "runtime": "python3.9"
-    },
-    "api/test.py": {
-      "runtime": "python3.9"
-    },
-    "api/languages.py": {
-      "runtime": "python3.9"
-    },
-    "api/translator-metrics.py": {
+    "api/*.py": {
       "runtime": "python3.9"
     }
   },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    }
+  ],
   "env": {
     "GEMINI_API_KEY": "@gemini_api_key",
     "GEMINI_MODEL": "gemini-2.5-flash",
@@ -51,10 +23,5 @@
     "INTER_BATCH_SLEEP": "20",
     "CIRCUIT_BREAKER_FAILURES": "2",
     "CIRCUIT_BREAKER_TIMEOUT": "300"
-  },
-  "build": {
-    "env": {
-      "PYTHONPATH": "./api"
-    }
   }
 }
