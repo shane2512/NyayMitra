@@ -7,6 +7,9 @@
   NODE_VERSION = "18"
   PYTHON_VERSION = "3.9"
 
+[functions]
+  node_bundler = "esbuild"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
@@ -16,9 +19,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[functions]
-  python_runtime = "python3.9"
 
 [dev]
   command = "cd frontend && npm start"

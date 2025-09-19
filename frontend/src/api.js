@@ -5,6 +5,14 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? '/.netlify/functions' 
   : 'http://localhost:8888/.netlify/functions';  // Netlify dev server
 
+// Debug logging
+console.log('🔧 API Configuration:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('API_BASE_URL:', API_BASE_URL);
+if (typeof window !== 'undefined') {
+  console.log('Current origin:', window.location.origin);
+}
+
 // Add axios defaults for better debugging
 axios.defaults.timeout = 300000; // 5 minutes timeout for long analysis
 
