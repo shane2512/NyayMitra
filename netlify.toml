@@ -5,10 +5,6 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  PYTHON_VERSION = "3.9"
-
-[functions]
-  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/*"
@@ -19,9 +15,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[dev]
-  command = "cd frontend && npm start"
-  port = 3000
-  targetPort = 8888
-  framework = "#custom"
