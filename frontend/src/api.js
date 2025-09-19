@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000';
+// Serverless API configuration
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://your-vercel-app.vercel.app/api' 
+  : 'http://localhost:3000/api';  // Serverless functions via vercel dev
 
 // Add axios defaults for better debugging
 axios.defaults.timeout = 300000; // 5 minutes timeout for long analysis
@@ -43,8 +46,211 @@ export const analyzeContract = async (file, language = 'en', interests = []) => 
 export const healthCheck = async () => {
   try {
     const response = await axios.get(`${API_BASE_URL}/health`);
+    
+    // Handle serverless response format
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
     return response.data;
+    
   } catch (error) {
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
     throw error.response?.data || { error: 'Network error' };
+  }
+};
+
+// Chat API functions for serverless
+export const sendChatMessage = async (message, sessionId = null, contractContext = null) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/chat`, {
+      message,
+      session_id: sessionId,
+      contract_context: contractContext
+    });
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Chat API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Chat request failed' };
+  }
+};
+
+export const sendBatchChatMessage = async (questions, sessionId = null, contractContext = null) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/chat-batch`, {
+      questions,
+      session_id: sessionId,
+      contract_context: contractContext
+    });
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Batch Chat API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Batch chat request failed' };
+  }
+};
+
+export const getChatHistory = async (sessionId) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/chat-history?session_id=${sessionId}`);
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Chat History API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Failed to get chat history' };
+  }
+};
+
+export const clearChatSession = async (sessionId) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/chat-clear`, {
+      session_id: sessionId
+    });
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Clear Chat API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Failed to clear chat session' };
+  }
+};
+
+export const getRateLimitStatus = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/rate-limit-status`);
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Rate Limit Status API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Failed to get rate limit status' };
+  }
+};
+
+export const getSupportedLanguages = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/languages`);
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Languages API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Failed to get supported languages' };
+  }
+};
+
+export const getTranslatorMetrics = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/translator-metrics`);
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Translator Metrics API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Failed to get translator metrics' };
+  }
+};
+
+export const transcribeAudio = async (audioFile) => {
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioFile);
+    
+    const response = await axios.post(`${API_BASE_URL}/chat-transcribe`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Transcribe API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Audio transcription failed' };
+  }
+};
+
+export const sendVoiceMessage = async (message, sessionId = null, contractContext = null) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/chat-voice`, {
+      message,
+      session_id: sessionId,
+      contract_context: contractContext
+    });
+    
+    if (response.data.body) {
+      return JSON.parse(response.data.body);
+    }
+    return response.data;
+    
+  } catch (error) {
+    console.error('Voice Chat API Error:', error);
+    if (error.response?.data?.body) {
+      const errorData = JSON.parse(error.response.data.body);
+      throw errorData;
+    }
+    throw error.response?.data || { error: 'Voice chat request failed' };
   }
 };

@@ -1,7 +1,12 @@
-Flask==2.1.1
-PyMuPDF==1.19.6
-google-generativeai==0.1.0
-pydantic==1.9.0
-uvicorn==0.17.0
-fastapi==0.75.0
-requests==2.26.0
+# NyayMitra Serverless Dependencies
+# Main dependencies are in api/requirements.txt
+# This file is kept for compatibility
+
+# Core dependencies (see api/requirements.txt for serverless versions)
+google-generativeai==0.8.2
+PyMuPDF==1.23.26
+pydantic==2.5.2
+requests==2.31.0
+python-dotenv==1.0.0
+elevenlabs==0.2.27
+# Legacy Flask dependencies removed - now using serverless architecture
