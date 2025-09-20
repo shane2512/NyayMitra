@@ -33,6 +33,11 @@ const VoiceRecorder = ({ onTranscript }) => {
         const data = await response.json();
         console.log('VoiceRecorder response:', data); // Debug log
         
+        // Handle demo mode messaging
+        if (data.demo_mode) {
+          console.log('VoiceRecorder: Demo mode active');
+        }
+        
         // Handle TTS audio response
         if (data.audio_data) {
           console.log('VoiceRecorder: Received audio_data from backend');
@@ -52,6 +57,11 @@ const VoiceRecorder = ({ onTranscript }) => {
         if (data.ai_response && !data.audio_data) {
           console.log('VoiceRecorder: No audio, displaying text response');
           // Could trigger a text-to-speech fallback or display response
+        }
+        
+        // Show demo mode message if applicable
+        if (data.message) {
+          console.log('Voice service message:', data.message);
         }
       } catch (e) {
         // Optionally handle error
