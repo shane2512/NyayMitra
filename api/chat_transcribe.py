@@ -167,7 +167,10 @@ class handler(BaseHTTPRequestHandler):
         
         # Add TTS audio if available
         if tts_audio:
+            print("Demo mode: TTS audio generated successfully")
             response_data.update(tts_audio)
+        else:
+            print("Demo mode: TTS audio generation failed, browser fallback will be used")
         
         return response_data
 
@@ -190,13 +193,17 @@ class handler(BaseHTTPRequestHandler):
                 # Use Gemini 1.5 Flash for audio transcription
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # Create transcription prompt
-                transcription_prompt = """Please transcribe this audio file accurately. 
-                The audio contains a user asking questions about legal contracts or legal terms.
-                Provide only the transcribed text without any additional commentary or formatting.
-                If the audio is unclear, provide your best interpretation of what was said.
+                # Create transcription prompt with language specification
+                transcription_prompt = """Please transcribe this audio file accurately in English language only. 
+                The audio contains a user asking questions about legal contracts or legal terms in English.
                 
-                Transcription:"""
+                Important instructions:
+                - Transcribe ONLY in English language
+                - If the speaker used any other language, translate it to English
+                - Provide only the transcribed English text without any additional commentary
+                - If the audio is unclear, provide your best English interpretation
+                
+                English transcription:"""
                 
                 # Generate transcription
                 print("Generating transcription with Gemini...")
@@ -322,7 +329,11 @@ class handler(BaseHTTPRequestHandler):
                     'https://api.openai.com/v1/audio/transcriptions',
                     headers={'Authorization': f'Bearer {api_key}'},
                     files={'file': audio_file},
-                    data={'model': 'whisper-1'}
+                    data={
+                        'model': 'whisper-1',
+                        'language': 'en',  # Force English language
+                        'response_format': 'json'
+                    }
                 )
             
             # Clean up temp file

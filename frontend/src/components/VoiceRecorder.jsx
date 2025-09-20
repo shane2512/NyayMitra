@@ -72,30 +72,55 @@ const VoiceRecorder = ({ onTranscript }) => {
           console.log('VoiceRecorder: No audio, trying browser TTS fallback');
           // Use browser's built-in text-to-speech as fallback
           if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(data.ai_response);
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            utterance.volume = 0.8;
+            // Stop any ongoing speech
+            window.speechSynthesis.cancel();
             
-            utterance.onstart = () => {
-              console.log('Browser TTS: Speech started');
-              setPlaying(true);
-            };
-            
-            utterance.onend = () => {
-              console.log('Browser TTS: Speech ended');
-              setPlaying(false);
-            };
-            
-            utterance.onerror = (error) => {
-              console.error('Browser TTS error:', error);
-              setPlaying(false);
-            };
-            
-            // Small delay to allow UI to update
-            setTimeout(() => {
+            // Wait for voices to load
+            const speakText = () => {
+              const utterance = new SpeechSynthesisUtterance(data.ai_response);
+              
+              // Find English female voice if available
+              const voices = window.speechSynthesis.getVoices();
+              const englishVoice = voices.find(voice => 
+                voice.lang.startsWith('en') && voice.name.toLowerCase().includes('female')
+              ) || voices.find(voice => voice.lang.startsWith('en')) || voices[0];
+              
+              if (englishVoice) {
+                utterance.voice = englishVoice;
+              }
+              
+              utterance.lang = 'en-US';
+              utterance.rate = 0.9;
+              utterance.pitch = 1.0;
+              utterance.volume = 1.0;
+              
+              utterance.onstart = () => {
+                console.log('Browser TTS: Speech started');
+                setPlaying(true);
+              };
+              
+              utterance.onend = () => {
+                console.log('Browser TTS: Speech ended');
+                setPlaying(false);
+              };
+              
+              utterance.onerror = (error) => {
+                console.error('Browser TTS error:', error);
+                setPlaying(false);
+              };
+              
+              console.log('Starting browser TTS with voice:', englishVoice?.name || 'default');
               window.speechSynthesis.speak(utterance);
-            }, 500);
+            };
+            
+            // Handle voice loading
+            if (window.speechSynthesis.getVoices().length === 0) {
+              window.speechSynthesis.onvoiceschanged = () => {
+                speakText();
+              };
+            } else {
+              setTimeout(speakText, 100);
+            }
           }
         }
         
