@@ -454,12 +454,15 @@ Response:"""
         """Generate speech using ElevenLabs TTS API"""
         try:
             if not ELEVENLABS_AVAILABLE:
+                print("ElevenLabs not available - requests module missing")
                 return None
                 
             api_key = os.getenv('ELEVENLABS_API_KEY')
             if not api_key:
                 print("ElevenLabs API key not found")
                 return None
+            
+            print(f"Generating TTS for text: {text[:50]}...")
             
             # ElevenLabs API endpoint and voice
             voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice (professional female)
@@ -482,9 +485,11 @@ Response:"""
                 }
             }
             
+            print("Making request to ElevenLabs API...")
             response = requests.post(url, json=data, headers=headers)
             
             if response.status_code == 200:
+                print(f"ElevenLabs TTS success - audio size: {len(response.content)} bytes")
                 # Return base64 encoded audio
                 audio_base64 = base64.b64encode(response.content).decode('utf-8')
                 return {
@@ -493,7 +498,7 @@ Response:"""
                     'content_type': 'audio/mpeg'
                 }
             else:
-                print(f"ElevenLabs TTS error: {response.status_code}")
+                print(f"ElevenLabs TTS error: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
