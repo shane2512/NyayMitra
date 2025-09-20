@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, MessageSquare, X, Loader2, RotateCcw, Sparkles, User, Bot, Mic, Keyboard } from 'lucide-react';
-import axios from 'axios';
+import { sendChatMessage, sendBatchChatMessage, clearChatSession, sendVoiceMessage } from '../api';
 import VoiceRecorder from './VoiceRecorder';
 import Button from './ui/Button';
 
@@ -107,14 +107,10 @@ const ChatInterface = ({ isOpen, onClose, contractContext }) => {
 
     try {
       const response = await makeAPICallWithRetry(async () => {
-        return await axios.post('http://localhost:5000/chat', {
-          message: message,
-          session_id: sessionId,
-          contract_context: contractContext
-        });
+        return await sendChatMessage(message, sessionId, contractContext);
       });
 
-      const { response: aiResponse, session_id, suggestions: newSuggestions } = response.data;
+      const { response: aiResponse, session_id, suggestions: newSuggestions } = response;
       
       setSessionId(session_id);
       
@@ -168,14 +164,10 @@ const ChatInterface = ({ isOpen, onClose, contractContext }) => {
 
     try {
       const response = await makeAPICallWithRetry(async () => {
-        return await axios.post('http://localhost:5000/chat/batch', {
-          questions: batchQuestions,
-          session_id: sessionId,
-          contract_context: contractContext
-        });
+        return await sendBatchChatMessage(batchQuestions, sessionId, contractContext);
       });
 
-      const { responses, session_id } = response.data;
+      const { responses, session_id } = response;
       
       setSessionId(session_id);
       
@@ -218,26 +210,22 @@ const ChatInterface = ({ isOpen, onClose, contractContext }) => {
       
       // Get voice response
       const response = await makeAPICallWithRetry(async () => {
-        return await axios.post('http://localhost:5000/chat/voice', {
-          message: transcript,
-          session_id: sessionId,
-          contract_context: contractContext
-        });
+        return await sendVoiceMessage(transcript, sessionId, contractContext);
       });
       
-      if (response.data.audio_url) {
-        console.log('Received audio_url from backend:', response.data.audio_url);
-        const fullAudioUrl = response.data.audio_url.startsWith('http')
-          ? response.data.audio_url
-          : `http://localhost:5000${response.data.audio_url}`;
+      if (response.audio_url) {
+        console.log('Received audio_url from backend:', response.audio_url);
+        const fullAudioUrl = response.audio_url.startsWith('http')
+          ? response.audio_url
+          : `${window.location.origin}${response.audio_url}`;
         console.log('Setting audio URL in <audio>:', fullAudioUrl);
         setAudioURL(fullAudioUrl);
       }
-      if (response.data.answer) {
+      if (response.answer) {
         const aiMessage = {
           id: Date.now() + 2,
           role: 'assistant',
-          content: response.data.answer,
+          content: response.answer,
           timestamp: new Date().toISOString()
         };
         setMessages(prev => [...prev, aiMessage]);
@@ -251,9 +239,7 @@ const ChatInterface = ({ isOpen, onClose, contractContext }) => {
 
   const clearHistory = async () => {
     try {
-      await axios.post('http://localhost:5000/chat/clear', {
-        session_id: sessionId
-      });
+      await clearChatSession(sessionId);
       setMessages([]);
       setSessionId(null);
       setSuggestions([]);
