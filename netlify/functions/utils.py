@@ -74,3 +74,21 @@ def handle_cors_preflight(event: Dict[str, Any]) -> Optional[tuple]:
     if event.get('httpMethod') == 'OPTIONS':
         return create_response({}, 200)
     return None
+
+def handle_cors() -> Dict[str, Any]:
+    """Handle CORS for all requests."""
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        },
+        'body': json.dumps({})
+    }
+
+def validate_request(event: Dict[str, Any]) -> bool:
+    """Validate incoming request."""
+    # Basic validation - can be expanded as needed
+    return event.get('httpMethod') in ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']

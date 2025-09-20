@@ -2,7 +2,7 @@ import os
 import time
 from typing import Dict, Any, Optional
 import google.generativeai as genai
-from .rate_limiter import rate_limiter
+from .rate_limiter import ServerlessRateLimiter
 from .summarizer import SummarizerAgent
 from .risk_analyzer import RiskAnalyzerAgent
 from .translator import TranslatorAgent
@@ -21,6 +21,7 @@ class ModeratorAgent:
         self.summarizer = SummarizerAgent(self.api_key)
         self.risk_analyzer = RiskAnalyzerAgent(self.api_key)
         self.translator = TranslatorAgent(self.api_key)
+        self.rate_limiter = ServerlessRateLimiter()
         
         self.model_name = Config.GEMINI_MODEL
     
@@ -46,7 +47,7 @@ class ModeratorAgent:
             
             # 1. Generate summary
             try:
-                summary_result = rate_limiter.execute_with_rate_limit(
+                summary_result = self.rate_limiter.execute_with_rate_limit(
                     self.summarizer.generate_summary, contract_text
                 )
                 analysis_results["summary"] = summary_result
@@ -60,7 +61,7 @@ class ModeratorAgent:
             
             # 2. Analyze risks
             try:
-                risk_result = rate_limiter.execute_with_rate_limit(
+                risk_result = self.rate_limiter.execute_with_rate_limit(
                     self.risk_analyzer.analyze_risks, contract_text
                 )
                 analysis_results["risks"] = risk_result
@@ -106,7 +107,7 @@ class ModeratorAgent:
             if language != "en":
                 try:
                     contract_text = self._extract_pdf_text(pdf_path)
-                    translation_result = rate_limiter.execute_with_rate_limit(
+                    translation_result = self.rate_limiter.execute_with_rate_limit(
                         self.translator.translate_summary, 
                         contract_text, language, interests or []
                     )
