@@ -1,9 +1,9 @@
 import axios from 'axios';
 
-// Netlify Functions API configuration
+// Vercel Functions API configuration
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '/.netlify/functions' 
-  : 'http://localhost:8888/.netlify/functions';  // Netlify dev server
+  ? '/api' 
+  : 'http://localhost:3000/api';  // Vercel dev server
 
 // Debug logging
 console.log('🔧 API Configuration:');
