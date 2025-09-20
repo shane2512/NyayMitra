@@ -1,0 +1,16 @@
+{
+  "name": "nyaymitra",
+  "version": "1.0.0",
+  "description": "NyayMitra - AI-powered Legal Contract Risk Analyzer",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd frontend && npm start",
+    "vercel-build": "cd frontend && npm install && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shane2512/NyayMitra.git"
+  },
+  "author": "Shane",
+  "license": "MIT"
+}

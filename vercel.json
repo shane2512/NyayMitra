@@ -2,17 +2,45 @@
   "version": 2,
   "builds": [
     {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build"
-    },
-    {
-      "src": "api/*.py",
-      "use": "@vercel/python"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "frontend/build"
+      }
     }
   ],
+  "functions": {
+    "api/*.py": {
+      "runtime": "python3.9"
+    }
+  },
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/frontend/build/index.html" }
-  ],
-  "outputDirectory": "frontend/build"
+    {
+      "src": "/api/analyze",
+      "dest": "/api/analyze.py"
+    },
+    {
+      "src": "/api/chat_transcribe",
+      "dest": "/api/chat_transcribe.py"
+    },
+    {
+      "src": "/api/chat",
+      "dest": "/api/chat.py"
+    },
+    {
+      "src": "/api/admin",
+      "dest": "/api/admin.py"
+    },
+    {
+      "src": "/api/languages",
+      "dest": "/api/languages.py"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

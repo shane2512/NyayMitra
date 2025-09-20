@@ -2,7 +2,7 @@ import json
 import os
 from urllib.parse import parse_qs
 
-def handler(request):
+def handler(request, context):
     """
     Vercel serverless function handler for contract analysis.
     """
