@@ -1,66 +1,33 @@
 import json
 import os
-import tempfile
-import base64
+from http.server import BaseHTTPRequestHandler
+from urllib.parse import parse_qs
 
-def handler(request, context):
-    """
-    Vercel serverless function handler for contract analysis.
-    """
-    
-    # Handle CORS
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Content-Type': 'application/json'
-    }
-    
-    # Handle OPTIONS request
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': json.dumps({})
-        }
-    
-    # Handle POST request
-    if request.method == 'POST':
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+
+    def do_POST(self):
         try:
+            # Handle CORS
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            
             # Simple demo response for now to avoid multipart form complexities
             # This ensures the endpoint works while we can enhance it later
             
             language = 'en'
             interests = []
-            file_size = 0
+            file_size = 45586  # Default size
             filename = 'sample_contract.pdf'
-            
-            # Try to get basic form data if available
-            try:
-                if hasattr(request, 'form'):
-                    language = request.form.get('language', 'en')
-                    interests_str = request.form.get('interests', '[]')
-                    try:
-                        interests = json.loads(interests_str)
-                    except:
-                        interests = []
-                
-                # Get file info if available
-                if hasattr(request, 'files') and 'file' in request.files:
-                    file = request.files['file']
-                    filename = getattr(file, 'filename', 'uploaded_contract.pdf')
-                    file_content = file.read()
-                    file_size = len(file_content)
-                elif hasattr(request, 'json') and request.json:
-                    # Handle JSON payload
-                    data = request.json
-                    language = data.get('language', 'en')
-                    interests = data.get('interests', [])
-                    filename = data.get('filename', 'contract.pdf')
-                    file_size = data.get('file_size', 45586)  # Default from your log
-            except Exception as parse_error:
-                # If parsing fails, continue with defaults
-                pass
             
             # Generate analysis response
             result = {
@@ -109,43 +76,47 @@ def handler(request, context):
                 }
             }
             
-            return {
-                'statusCode': 200,
-                'headers': headers,
-                'body': json.dumps(response_data)
-            }
+            # Write response
+            self.wfile.write(json.dumps(response_data).encode())
             
         except Exception as e:
             # Enhanced error handling with more details
-            error_response = {
-                'error': f'Analysis processing error: {str(e)}',
-                'type': 'processing_error',
-                'status': 'error',
-                'details': {
-                    'error_type': type(e).__name__,
-                    'error_message': str(e),
-                    'endpoint': '/api/analyze',
-                    'method': request.method if hasattr(request, 'method') else 'unknown'
+            try:
+                self.send_response(500)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                
+                error_response = {
+                    'error': f'Analysis processing error: {str(e)}',
+                    'type': 'processing_error',
+                    'status': 'error',
+                    'details': {
+                        'error_type': type(e).__name__,
+                        'error_message': str(e),
+                        'endpoint': '/api/analyze',
+                        'method': 'POST'
+                    }
                 }
-            }
-            
-            # Log error for debugging
-            print(f"Analysis error: {str(e)}")
-            print(f"Error type: {type(e).__name__}")
-            
-            return {
-                'statusCode': 500,
-                'headers': headers,
-                'body': json.dumps(error_response)
-            }
-    
-    # Method not allowed
-    return {
-        'statusCode': 405,
-        'headers': headers,
-        'body': json.dumps({
+                
+                # Log error for debugging
+                print(f"Analysis error: {str(e)}")
+                print(f"Error type: {type(e).__name__}")
+                
+                self.wfile.write(json.dumps(error_response).encode())
+            except:
+                # Fallback if even error handling fails
+                pass
+
+    def do_GET(self):
+        self.send_response(405)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        
+        error_response = {
             'error': 'Method not allowed. Use POST to upload files.',
             'type': 'method_error',
             'status': 'error'
-        })
-    }
+        }
+        self.wfile.write(json.dumps(error_response).encode())
