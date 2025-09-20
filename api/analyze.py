@@ -3,6 +3,7 @@ import os
 import tempfile
 import fitz  # PyMuPDF
 import google.generativeai as genai
+import re
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs
 import cgi
@@ -121,8 +122,30 @@ class handler(BaseHTTPRequestHandler):
             # Step 1: Extract text from PDF
             contract_text = self.extract_pdf_text(file_data)
             
-            # Step 2: Extract clauses from contract text
-            clauses = self.extract_clauses(contract_text)
+            # Step 1.5: Validate document is a legal contract
+            validation_result = self.validate_legal_document(contract_text)
+            if not validation_result['is_valid']:
+                return {
+                    'status': 'error',
+                    'error': validation_result['error'],
+                    'type': 'document_validation_error',
+                    'suggestions': validation_result.get('suggestions', [])
+                }
+            
+            # Step 2: Extract legal clauses from contract text
+            clauses = self.extract_legal_clauses(contract_text)
+            
+            if not clauses:
+                return {
+                    'status': 'error',
+                    'error': 'No valid legal clauses found in the document',
+                    'type': 'clause_extraction_error',
+                    'suggestions': [
+                        'Ensure the document is a legal contract or agreement',
+                        'Check that the PDF contains readable text',
+                        'Verify the document has numbered or titled sections'
+                    ]
+                }
             
             # Step 3: Analyze each clause with Gemini
             risk_report = self.analyze_clauses_with_gemini(clauses, language)
@@ -215,67 +238,303 @@ IN WITNESS WHEREOF, the parties have executed this Agreement.
 
 Company: _________________    Employee: _________________"""
 
-    def extract_clauses(self, contract_text):
-        """Extract individual clauses from contract text"""
+    def validate_legal_document(self, contract_text):
+        """Validate that the document is a proper legal contract or agreement"""
         try:
-            # Split contract into sections/clauses
-            clauses = {}
+            # Convert to lowercase for case-insensitive matching
+            text_lower = contract_text.lower()
             
-            # Simple clause extraction logic
-            lines = contract_text.split('\n')
-            current_clause = ""
-            current_number = ""
-            clause_count = 0
+            # Legal document indicators
+            legal_keywords = [
+                'agreement', 'contract', 'terms', 'conditions', 'party', 'parties',
+                'whereas', 'hereby', 'shall', 'obligations', 'rights', 'liabilities',
+                'covenant', 'warranty', 'indemnify', 'governing law', 'jurisdiction',
+                'breach', 'termination', 'execution', 'effective date', 'consideration'
+            ]
             
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
+            # Contract type indicators
+            contract_types = [
+                'employment agreement', 'service agreement', 'license agreement',
+                'non-disclosure agreement', 'nda', 'purchase agreement', 'sale agreement',
+                'lease agreement', 'rental agreement', 'partnership agreement',
+                'joint venture', 'memorandum of understanding', 'mou',
+                'terms of service', 'privacy policy', 'end user license',
+                'software license', 'consulting agreement', 'contractor agreement'
+            ]
+            
+            # Legal structure indicators
+            legal_structures = [
+                'article', 'section', 'clause', 'paragraph', 'subsection',
+                'schedule', 'exhibit', 'appendix', 'addendum', 'amendment'
+            ]
+            
+            # Signature/execution indicators
+            signature_indicators = [
+                'signature', 'signed', 'executed', 'witness whereof', 'in witness',
+                'executed on', 'signed on', 'date of execution', 'effective date'
+            ]
+            
+            # Check minimum length
+            if len(contract_text.strip()) < 200:
+                return {
+                    'is_valid': False,
+                    'error': 'Document too short to be a legal contract (minimum 200 characters required)',
+                    'suggestions': ['Ensure the document contains sufficient legal content', 'Check if the PDF was properly extracted']
+                }
+            
+            # Count legal indicators
+            legal_score = 0
+            
+            # Check for legal keywords
+            legal_keyword_count = sum(1 for keyword in legal_keywords if keyword in text_lower)
+            legal_score += min(legal_keyword_count, 10)  # Cap at 10 points
+            
+            # Check for contract types
+            contract_type_found = any(contract_type in text_lower for contract_type in contract_types)
+            if contract_type_found:
+                legal_score += 15
+            
+            # Check for legal structure
+            structure_count = sum(1 for structure in legal_structures if structure in text_lower)
+            legal_score += min(structure_count * 2, 10)  # Cap at 10 points
+            
+            # Check for signature indicators
+            signature_found = any(indicator in text_lower for indicator in signature_indicators)
+            if signature_found:
+                legal_score += 10
+            
+            # Check for numbered clauses/sections
+            import re
+            numbered_sections = len(re.findall(r'\b\d+\.\s*[A-Z]', contract_text))
+            if numbered_sections >= 3:
+                legal_score += 10
+            
+            # Check for legal formatting patterns
+            if re.search(r'\bWHEREAS\b.*\bNOW THEREFORE\b', contract_text, re.IGNORECASE | re.DOTALL):
+                legal_score += 15
+            
+            # Validation threshold
+            if legal_score < 20:
+                # Additional checks for common non-legal documents
+                non_legal_indicators = [
+                    'blog', 'article', 'news', 'story', 'recipe', 'tutorial',
+                    'manual', 'guide', 'documentation', 'readme', 'faq',
+                    'email', 'letter', 'memo', 'report', 'invoice', 'receipt'
+                ]
                 
-                # Check if line starts with a number (potential clause start)
-                if line and (line[0].isdigit() or line.startswith(('Article', 'Section', 'Clause'))):
-                    # Save previous clause if exists
-                    if current_clause and current_number:
-                        clauses[current_number] = current_clause.strip()
-                    
-                    # Start new clause
-                    current_number = f"Clause {clause_count + 1}"
-                    current_clause = line
-                    clause_count += 1
+                non_legal_found = any(indicator in text_lower for indicator in non_legal_indicators)
+                
+                if non_legal_found:
+                    return {
+                        'is_valid': False,
+                        'error': 'Document does not appear to be a legal contract. It may be a general document, manual, or other non-legal content.',
+                        'suggestions': [
+                            'Upload a legal contract, agreement, or terms document',
+                            'Ensure the document contains legal clauses and terms',
+                            'Check that this is not a general business document or manual'
+                        ]
+                    }
                 else:
-                    # Continue current clause
-                    if current_clause:
-                        current_clause += " " + line
-                    else:
-                        # Handle text before first numbered clause
-                        if not current_number:
-                            current_number = "Preamble"
-                            current_clause = line
+                    return {
+                        'is_valid': False,
+                        'error': 'Document does not contain sufficient legal content indicators. Please upload a proper legal contract or agreement.',
+                        'suggestions': [
+                            'Ensure the document is a legal contract or agreement',
+                            'Check that the document contains terms, clauses, and legal language',
+                            'Verify the PDF extraction was successful and text is readable'
+                        ]
+                    }
             
-            # Save last clause
-            if current_clause and current_number:
-                clauses[current_number] = current_clause.strip()
-            
-            # If no clauses found, create default ones
-            if not clauses:
-                # Split by paragraphs as fallback
-                paragraphs = [p.strip() for p in contract_text.split('\n\n') if p.strip()]
-                for i, paragraph in enumerate(paragraphs[:10]):  # Limit to 10 clauses
-                    if len(paragraph) > 50:  # Only substantial paragraphs
-                        clauses[f"Section {i + 1}"] = paragraph
-            
-            return clauses
+            return {
+                'is_valid': True,
+                'legal_score': legal_score,
+                'contract_type_detected': contract_type_found
+            }
             
         except Exception as e:
-            print(f"Clause extraction error: {e}")
-            # Return sample clauses as fallback
+            print(f"Document validation error: {e}")
             return {
-                "Employment Terms": "Employee shall serve as specified role and perform assigned duties with standard compensation and benefits.",
-                "Termination Clause": "Agreement may be terminated by either party with 30 days notice, or immediately for cause.",
-                "Confidentiality": "Employee must maintain strict confidentiality of Company proprietary information and trade secrets.",
-                "Non-Compete": "Employee agrees not to compete with Company for 12 months within 50-mile radius following termination.",
-                "Intellectual Property": "All inventions and works created during employment belong exclusively to the Company."
+                'is_valid': True,  # Allow through if validation fails
+                'error': None,
+                'fallback': True
             }
+
+    def extract_legal_clauses(self, contract_text):
+        """Extract legitimate legal clauses from contract text with validation"""
+        try:
+            
+            # Legal clause patterns and identifiers
+            legal_clause_keywords = [
+                'termination', 'liability', 'indemnification', 'confidentiality', 'non-disclosure',
+                'compensation', 'payment', 'intellectual property', 'governing law', 'jurisdiction',
+                'force majeure', 'breach', 'default', 'remedy', 'damages', 'limitation',
+                'warranty', 'representation', 'covenant', 'obligation', 'rights',
+                'assignment', 'modification', 'amendment', 'severability', 'entire agreement',
+                'execution', 'effective date', 'term', 'renewal', 'notice', 'dispute resolution',
+                'arbitration', 'mediation', 'non-compete', 'non-solicitation', 'employment',
+                'service', 'performance', 'delivery', 'acceptance', 'compliance'
+            ]
+            
+            clauses = {}
+            
+            # Method 1: Extract numbered sections/articles
+            numbered_pattern = r'(\d+\.?\s*[A-Z][A-Z\s]*[A-Z])\s*\n(.*?)(?=\n\d+\.?\s*[A-Z]|\nArticle|\nSection|\Z)'
+            numbered_matches = re.findall(numbered_pattern, contract_text, re.DOTALL | re.IGNORECASE)
+            
+            for match in numbered_matches:
+                title = match[0].strip()
+                content = match[1].strip()
+                if len(content) > 50 and self.is_legal_clause_content(content, legal_clause_keywords):
+                    clauses[f"Section {title}"] = f"{title}\n{content}"
+            
+            # Method 2: Extract Article-based sections
+            article_pattern = r'(Article\s+[IVX\d]+[:\.\-]?\s*[A-Z][A-Z\s]*[A-Z])\s*\n(.*?)(?=\nArticle|\nSection|\n\d+\.|\Z)'
+            article_matches = re.findall(article_pattern, contract_text, re.DOTALL | re.IGNORECASE)
+            
+            for match in article_matches:
+                title = match[0].strip()
+                content = match[1].strip()
+                if len(content) > 50 and self.is_legal_clause_content(content, legal_clause_keywords):
+                    clauses[title] = f"{title}\n{content}"
+            
+            # Method 3: Extract Section-based clauses
+            section_pattern = r'(Section\s+[\d\.]+\s*[A-Z][A-Z\s]*[A-Z])\s*\n(.*?)(?=\nSection|\nArticle|\n\d+\.|\Z)'
+            section_matches = re.findall(section_pattern, contract_text, re.DOTALL | re.IGNORECASE)
+            
+            for match in section_matches:
+                title = match[0].strip()
+                content = match[1].strip()
+                if len(content) > 50 and self.is_legal_clause_content(content, legal_clause_keywords):
+                    clauses[title] = f"{title}\n{content}"
+            
+            # Method 4: Extract clauses by legal keywords (if numbered sections not found)
+            if len(clauses) < 3:
+                for keyword in legal_clause_keywords:
+                    pattern = rf'([^.\n]*{re.escape(keyword)}[^.\n]*)\s*(.*?)(?=\n[A-Z][A-Z\s]*[A-Z]|\n\d+\.|\Z)'
+                    matches = re.findall(pattern, contract_text, re.DOTALL | re.IGNORECASE)
+                    
+                    for match in matches:
+                        title = match[0].strip()
+                        content = match[1].strip()
+                        if len(content) > 100 and self.is_legal_clause_content(content, legal_clause_keywords):
+                            clause_name = f"{keyword.title()} Clause"
+                            if clause_name not in clauses:
+                                clauses[clause_name] = f"{title}\n{content}"
+            
+            # Method 5: Paragraph-based extraction with legal validation (fallback)
+            if len(clauses) < 2:
+                paragraphs = [p.strip() for p in contract_text.split('\n\n') if p.strip()]
+                
+                for i, paragraph in enumerate(paragraphs):
+                    if (len(paragraph) > 100 and 
+                        self.is_legal_clause_content(paragraph, legal_clause_keywords) and
+                        not self.is_header_or_signature(paragraph)):
+                        
+                        # Try to identify clause type
+                        clause_type = self.identify_clause_type(paragraph, legal_clause_keywords)
+                        clause_name = f"{clause_type} - Paragraph {i + 1}"
+                        clauses[clause_name] = paragraph
+            
+            # Filter out invalid clauses
+            filtered_clauses = {}
+            for clause_id, clause_text in clauses.items():
+                if self.validate_legal_clause(clause_text):
+                    filtered_clauses[clause_id] = clause_text
+            
+            return filtered_clauses
+            
+        except Exception as e:
+            print(f"Legal clause extraction error: {e}")
+            return {}
+
+    def is_legal_clause_content(self, content, legal_keywords):
+        """Check if content appears to be a legal clause"""
+        content_lower = content.lower()
+        
+        # Must contain at least one legal keyword
+        keyword_found = any(keyword in content_lower for keyword in legal_keywords)
+        
+        # Legal language indicators
+        legal_indicators = [
+            'shall', 'will', 'agrees', 'covenants', 'represents', 'warrants',
+            'obligations', 'rights', 'liable', 'responsible', 'pursuant to',
+            'subject to', 'in accordance with', 'notwithstanding', 'provided that'
+        ]
+        
+        legal_language_count = sum(1 for indicator in legal_indicators if indicator in content_lower)
+        
+        # Should have legal language and reasonable length
+        return keyword_found and legal_language_count >= 2 and len(content) > 50
+
+    def identify_clause_type(self, content, legal_keywords):
+        """Identify the type of legal clause based on content"""
+        content_lower = content.lower()
+        
+        clause_types = {
+            'Termination': ['termination', 'terminate', 'end', 'expiry', 'dissolution'],
+            'Payment': ['payment', 'compensation', 'salary', 'fee', 'remuneration'],
+            'Liability': ['liability', 'liable', 'damages', 'loss', 'harm'],
+            'Confidentiality': ['confidential', 'non-disclosure', 'proprietary', 'secret'],
+            'Intellectual Property': ['intellectual property', 'copyright', 'patent', 'trademark'],
+            'Governing Law': ['governing law', 'jurisdiction', 'courts', 'legal'],
+            'General Terms': ['terms', 'conditions', 'provisions', 'clause']
+        }
+        
+        for clause_type, keywords in clause_types.items():
+            if any(keyword in content_lower for keyword in keywords):
+                return clause_type
+        
+        return 'General Provision'
+
+    def validate_legal_clause(self, clause_text):
+        """Validate that a clause is legitimate legal content"""
+        clause_lower = clause_text.lower()
+        
+        # Minimum requirements
+        if len(clause_text) < 50:
+            return False
+        
+        # Must contain legal language
+        legal_verbs = ['shall', 'will', 'agrees', 'covenants', 'represents', 'warrants']
+        if not any(verb in clause_lower for verb in legal_verbs):
+            return False
+        
+        # Should not be just contact info, signatures, or formatting
+        invalid_patterns = [
+            r'^\s*_+\s*$',  # Just underscores
+            r'^\s*signature\s*$',  # Just "signature"
+            r'^\s*date\s*$',  # Just "date"
+            r'^\s*name\s*$',  # Just "name"
+            r'^\s*[\(\)\[\]\{\}]+\s*$',  # Just brackets
+        ]
+        
+        for pattern in invalid_patterns:
+            if re.match(pattern, clause_text, re.IGNORECASE):
+                return False
+        
+        return True
+
+    def is_header_or_signature(self, text):
+        """Check if text is just a header, title, or signature line"""
+        text_clean = text.strip()
+        
+        # Too short to be a clause
+        if len(text_clean) < 30:
+            return True
+        
+        # Common headers/signatures
+        header_patterns = [
+            r'^[A-Z\s]{5,}$',  # All caps headers
+            r'^\s*(signature|date|name|title|company)\s*:?\s*_*\s*$',
+            r'^\s*page\s+\d+',  # Page numbers
+            r'^\s*(appendix|exhibit|schedule)\s+[A-Z\d]',
+        ]
+        
+        for pattern in header_patterns:
+            if re.match(pattern, text_clean, re.IGNORECASE):
+                return True
+        
+        return False
 
     def analyze_clauses_with_gemini(self, clauses, language):
         """Analyze each clause for risks using Gemini AI"""
