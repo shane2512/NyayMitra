@@ -31,7 +31,7 @@ export const analyzeContract = async (file, language = 'en', interests = []) => 
     });
     
     // Don't set Content-Type header - let axios handle it for FormData
-    const response = await axios.post(`${API_BASE_URL}/analyze`, formData);
+    const response = await axios.post(`${API_BASE_URL}/agents/analyze`, formData);
     console.log('API Response received:', response.status, response.data);
     
     return response.data;
