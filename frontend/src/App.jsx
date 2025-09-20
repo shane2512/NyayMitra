@@ -135,11 +135,18 @@ function App() {
       // Better error message handling
       let errorMessage = 'Failed to analyze contract';
       
-      // Handle different error formats
+      // Handle different error formats - ensure we always get a string
       if (typeof err === 'string') {
         errorMessage = err;
       } else if (err?.error) {
-        errorMessage = err.error;
+        // Handle nested error objects
+        if (typeof err.error === 'string') {
+          errorMessage = err.error;
+        } else if (err.error?.message) {
+          errorMessage = err.error.message;
+        } else {
+          errorMessage = JSON.stringify(err.error);
+        }
       } else if (err?.message) {
         if (err.message.includes('timeout')) {
           errorMessage = 'Analysis timed out. Please try again.';
@@ -149,11 +156,26 @@ function App() {
           errorMessage = err.message;
         }
       } else if (err?.response?.data?.error) {
-        errorMessage = err.response.data.error;
+        // Handle API error responses
+        if (typeof err.response.data.error === 'string') {
+          errorMessage = err.response.data.error;
+        } else {
+          errorMessage = JSON.stringify(err.response.data.error);
+        }
       } else if (err?.statusText) {
         errorMessage = `HTTP Error: ${err.statusText}`;
       } else {
-        errorMessage = 'Unknown error occurred during analysis';
+        // Fallback: stringify the entire error object
+        try {
+          errorMessage = JSON.stringify(err);
+        } catch {
+          errorMessage = 'Unknown error occurred during analysis';
+        }
+      }
+      
+      // Ensure errorMessage is always a string
+      if (typeof errorMessage !== 'string') {
+        errorMessage = String(errorMessage);
       }
       
       console.log('Final error message:', errorMessage);
