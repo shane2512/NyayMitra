@@ -26,20 +26,32 @@ const VoiceRecorder = ({ onTranscript }) => {
       const formData = new FormData();
       formData.append('audio', audioBlob);
       try {
-        const response = await fetch('http://localhost:5000/voice/ai', {
+        const response = await fetch('/api/chat_transcribe', {
           method: 'POST',
           body: formData
         });
         const data = await response.json();
         console.log('VoiceRecorder response:', data); // Debug log
-        if (data.audio_url) {
-          console.log('VoiceRecorder: Received audio_url from backend:', data.audio_url);
-          setAudioUrl(data.audio_url);
+        
+        // Handle TTS audio response
+        if (data.audio_data) {
+          console.log('VoiceRecorder: Received audio_data from backend');
+          // Create audio URL from base64 data
+          const audioData = `data:audio/mpeg;base64,${data.audio_data}`;
+          setAudioUrl(audioData);
         }
+        
+        // Handle transcript
         if (data.recognized_text) {
           onTranscript(data.recognized_text);
         } else if (data.transcript) {
           onTranscript(data.transcript);
+        }
+        
+        // Display AI response if no audio
+        if (data.ai_response && !data.audio_data) {
+          console.log('VoiceRecorder: No audio, displaying text response');
+          // Could trigger a text-to-speech fallback or display response
         }
       } catch (e) {
         // Optionally handle error

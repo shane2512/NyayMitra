@@ -7,7 +7,7 @@ const DebugPanel = ({ isVisible, analysisResult, error, isLoading, onClose }) =>
     // Test backend connectivity
     const testBackend = async () => {
       try {
-        const response = await fetch('http://localhost:5000/health');
+        const response = await fetch('/api/admin');
         const data = await response.json();
         setBackendStatus({ status: 'connected', data });
       } catch (err) {

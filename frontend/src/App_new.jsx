@@ -36,7 +36,7 @@ function App() {
     formData.append('interests', JSON.stringify(interests));
 
     try {
-      const response = await axios.post('http://localhost:5000/analyze', formData, {
+      const response = await axios.post('/api/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 120000 // 2 minute timeout
       });

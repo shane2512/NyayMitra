@@ -7,6 +7,13 @@ from http.server import BaseHTTPRequestHandler
 import cgi
 import io
 
+# Try to import ElevenLabs for TTS
+try:
+    import requests
+    ELEVENLABS_AVAILABLE = True
+except ImportError:
+    ELEVENLABS_AVAILABLE = False
+
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -153,12 +160,21 @@ class handler(BaseHTTPRequestHandler):
                 # Generate AI response to the transcribed text
                 ai_response = self.generate_voice_response(transcript)
                 
-                return {
+                # Generate TTS audio for the AI response
+                tts_audio = self.generate_speech_with_elevenlabs(ai_response)
+                
+                response_data = {
                     'transcript': transcript,
                     'ai_response': ai_response,
                     'status': 'success',
                     'method': 'whisper'
                 }
+                
+                # Add TTS audio if available
+                if tts_audio:
+                    response_data.update(tts_audio)
+                
+                return response_data
             else:
                 return {
                     'error': 'Whisper API error',
@@ -188,7 +204,10 @@ class handler(BaseHTTPRequestHandler):
         # Generate AI response
         ai_response = self.generate_voice_response(simulated_transcript)
         
-        return {
+        # Generate TTS audio for the AI response
+        tts_audio = self.generate_speech_with_elevenlabs(ai_response)
+        
+        response_data = {
             'transcript': simulated_transcript,
             'ai_response': ai_response,
             'recognized_text': simulated_transcript,  # For compatibility
@@ -197,6 +216,12 @@ class handler(BaseHTTPRequestHandler):
             'method': 'simulation',
             'note': 'This is a simulated transcription for demo purposes. Integrate with actual speech recognition service for production.'
         }
+        
+        # Add TTS audio if available
+        if tts_audio:
+            response_data.update(tts_audio)
+        
+        return response_data
 
     def generate_voice_response(self, transcript):
         """Generate AI response to transcribed voice input"""
@@ -249,6 +274,56 @@ Response:"""
         
         else:
             return f"Thanks for your question about {transcript}. I'm here to help with contract analysis and legal guidance. For detailed advice on your specific situation, I recommend uploading your contract for comprehensive review, or consulting with a qualified attorney for binding legal advice."
+
+    def generate_speech_with_elevenlabs(self, text):
+        """Generate speech using ElevenLabs TTS API"""
+        try:
+            if not ELEVENLABS_AVAILABLE:
+                return None
+                
+            api_key = os.getenv('ELEVENLABS_API_KEY')
+            if not api_key:
+                print("ElevenLabs API key not found")
+                return None
+            
+            # ElevenLabs API endpoint and voice
+            voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice (professional female)
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": api_key
+            }
+            
+            data = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.5,
+                    "style": 0.3,
+                    "use_speaker_boost": True
+                }
+            }
+            
+            response = requests.post(url, json=data, headers=headers)
+            
+            if response.status_code == 200:
+                # Return base64 encoded audio
+                audio_base64 = base64.b64encode(response.content).decode('utf-8')
+                return {
+                    'audio_data': audio_base64,
+                    'audio_format': 'mp3',
+                    'content_type': 'audio/mpeg'
+                }
+            else:
+                print(f"ElevenLabs TTS error: {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"ElevenLabs TTS exception: {e}")
+            return None
 
     def do_GET(self):
         self.send_response(405)

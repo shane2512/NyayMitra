@@ -1,24 +1,20 @@
 import json
+from http.server import BaseHTTPRequestHandler
 
-def handler(request, context):
-    """Vercel serverless function handler for supported languages."""
-    
-    headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Content-Type': 'application/json'
-    }
-    
-    if request.method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': headers,
-            'body': json.dumps({})
-        }
-    
-    if request.method == 'GET':
+class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+
+    def do_GET(self):
         try:
+            self.send_response(200)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
             # Supported languages for contract analysis
             languages = {
                 'en': {
