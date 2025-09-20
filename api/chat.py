@@ -168,24 +168,165 @@ class handler(BaseHTTPRequestHandler):
             return {'error': str(e), 'status': 'error'}
 
     def handle_voice_message(self, data):
-        """Handle voice message processing"""
+        """Handle voice message processing with enhanced features"""
         try:
             message = data.get('message', '')
             session_id = data.get('session_id', 'default')
             contract_context = data.get('contract_context')
+            audio_data = data.get('audio_data')  # Base64 encoded audio
             
-            # Generate response (same as text)
-            ai_response = self.generate_legal_response(message, contract_context)
+            if not message and not audio_data:
+                return {'error': 'No message or audio data provided', 'status': 'error'}
+            
+            # If audio data is provided, process it first
+            if audio_data and not message:
+                # Decode and process audio (placeholder for now)
+                try:
+                    # This would integrate with speech recognition service
+                    message = "Voice message received - transcription feature coming soon"
+                except Exception as audio_error:
+                    return {'error': f'Audio processing failed: {str(audio_error)}', 'status': 'error'}
+            
+            # Generate voice-optimized response
+            ai_response = self.generate_voice_optimized_response(message, contract_context)
+            
+            # Generate voice synthesis URL (placeholder for now)
+            audio_url = self.generate_voice_synthesis(ai_response)
             
             return {
                 'answer': ai_response,
-                'audio_url': None,  # Voice synthesis coming soon
-                'message': 'Voice synthesis feature coming soon',
+                'response': ai_response,  # For compatibility
+                'audio_url': audio_url,
+                'transcript': message,
                 'session_id': session_id,
-                'status': 'success'
+                'status': 'success',
+                'voice_enabled': True,
+                'suggestions': self.generate_voice_suggestions(message)
             }
         except Exception as e:
             return {'error': str(e), 'status': 'error'}
+
+    def generate_voice_optimized_response(self, message, contract_context=None):
+        """Generate response optimized for voice interaction"""
+        try:
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                return self.get_voice_fallback_response(message, contract_context)
+            
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # Voice-specific system prompt
+            voice_system_prompt = """You are NyayMitra AI, a voice-enabled legal assistant. Respond as if speaking to the user directly.
+
+Voice Response Guidelines:
+- Use conversational, natural speech patterns
+- Keep responses under 150 words for comfortable listening
+- Use "you" and "your" to address the user directly
+- Avoid complex sentences; use clear, simple language
+- Include brief pauses with natural punctuation
+- End with a clear next step or question when appropriate
+- Be warm and professional, as if speaking face-to-face"""
+
+            context_info = ""
+            if contract_context:
+                context_info = "\n\nThe user has uploaded a contract that you can reference in your response."
+
+            voice_prompt = f"""{voice_system_prompt}{context_info}
+
+User said: "{message}"
+
+Provide a natural, conversational spoken response:"""
+
+            response = model.generate_content(voice_prompt)
+            return response.text.strip()
+            
+        except Exception as e:
+            print(f"Voice response error: {e}")
+            return self.get_voice_fallback_response(message, contract_context)
+
+    def get_voice_fallback_response(self, message, contract_context):
+        """Voice-optimized fallback responses"""
+        message_lower = message.lower()
+        
+        # Voice-friendly responses for common topics
+        if 'risk' in message_lower or 'dangerous' in message_lower or 'problem' in message_lower:
+            return "I understand you're concerned about risks in your contract. The main areas to watch are termination terms, liability clauses, and intellectual property rights. These can really impact your future. Would you like me to explain any specific section?"
+        
+        elif 'termination' in message_lower or 'quit' in message_lower or 'fired' in message_lower:
+            return "Termination clauses are super important to understand. Most contracts need two to four weeks notice, but yours might be different. Look for severance terms and any restrictions after you leave. What specific part worries you most?"
+        
+        elif 'confidential' in message_lower or 'nda' in message_lower or 'secret' in message_lower:
+            return "Confidentiality terms protect company secrets, but they shouldn't be too broad. You should still be able to use your general skills at future jobs. The key is making sure it's reasonable in scope and time. Does yours seem overly restrictive?"
+        
+        elif 'money' in message_lower or 'salary' in message_lower or 'payment' in message_lower or 'pay' in message_lower:
+            return "Payment terms should be crystal clear in your contract. Make sure you understand the exact amounts, when you get paid, and any performance bonuses. Also check expense policies and benefit contributions. Is there something specific about the payment terms that concerns you?"
+        
+        elif 'negotiate' in message_lower or 'change' in message_lower or 'better' in message_lower:
+            return "Good thinking about negotiation! Focus on what matters most to you - maybe salary, flexible work, or better termination terms. Come prepared with specific alternatives and be ready to explain why they're fair. What's your top priority to negotiate?"
+        
+        else:
+            response = f"Thanks for asking about your contract. I'm here to help you understand the legal terms and spot any issues. "
+            if contract_context:
+                response += "Since you've uploaded a contract, I can give you specific advice about your document. "
+            response += "What specific part would you like me to explain first?"
+            return response
+
+    def generate_voice_synthesis(self, text):
+        """Generate voice synthesis URL (placeholder for future implementation)"""
+        try:
+            # Placeholder for voice synthesis integration
+            # This could integrate with services like:
+            # - Google Text-to-Speech
+            # - Amazon Polly
+            # - OpenAI TTS
+            # - ElevenLabs
+            
+            # For now, return None to indicate text-only response
+            return None
+            
+        except Exception as e:
+            print(f"Voice synthesis error: {e}")
+            return None
+
+    def generate_voice_suggestions(self, message):
+        """Generate voice-friendly suggestions"""
+        message_type = self.classify_message_type(message)
+        
+        voice_suggestions = {
+            'risk_assessment': [
+                "What's the biggest risk in my contract?",
+                "Should I be worried about any clauses?",
+                "How can I protect myself better?"
+            ],
+            'termination': [
+                "How much notice do I need to give?",
+                "What happens if I get fired?",
+                "Are there any restrictions after I leave?"
+            ],
+            'compensation': [
+                "Are my payment terms fair?",
+                "When exactly do I get paid?",
+                "What about bonuses and benefits?"
+            ],
+            'confidentiality': [
+                "What can't I tell people?",
+                "How long do these rules last?",
+                "Can I still use my skills elsewhere?"
+            ],
+            'negotiation': [
+                "What should I try to negotiate?",
+                "How do I ask for better terms?",
+                "What's reasonable to request?"
+            ],
+            'general': [
+                "What should I know about this contract?",
+                "Are there any red flags?",
+                "What questions should I ask?"
+            ]
+        }
+        
+        return voice_suggestions.get(message_type, voice_suggestions['general'])
 
     def generate_legal_response(self, message, contract_context=None, batch_mode=False):
         """Generate intelligent legal response using Gemini"""
