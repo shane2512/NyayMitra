@@ -3,3 +3,7 @@ pypdf2==3.0.1
 python-dotenv==0.19.2
 elevenlabs==0.2.27
 werkzeug==2.3.7
+speechrecognition
+numpy
+sounddevice
+soundfile
