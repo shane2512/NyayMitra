@@ -15,8 +15,24 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "src": "/api/analyze",
+      "dest": "/api/analyze.py"
+    },
+    {
+      "src": "/api/chat_transcribe",
+      "dest": "/api/chat_transcribe.py"
+    },
+    {
+      "src": "/api/chat",
+      "dest": "/api/chat.py"
+    },
+    {
+      "src": "/api/admin",
+      "dest": "/api/admin.py"
+    },
+    {
+      "src": "/api/languages",
+      "dest": "/api/languages.py"
     },
     {
       "handle": "filesystem"
