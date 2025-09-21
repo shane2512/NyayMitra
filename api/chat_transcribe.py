@@ -218,6 +218,7 @@ class handler(BaseHTTPRequestHandler):
                 ai_response = self.generate_voice_response(transcript)
                 
                 # Generate TTS audio for the AI response
+                print(f"Attempting ElevenLabs TTS for response: {ai_response[:50]}...")
                 tts_audio = self.generate_speech_with_elevenlabs(ai_response)
                 
                 response_data = {
@@ -230,7 +231,11 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Add TTS audio if available
                 if tts_audio:
+                    print("Gemini: ElevenLabs TTS audio generated successfully")
                     response_data.update(tts_audio)
+                else:
+                    print("Gemini: ElevenLabs TTS failed, browser fallback will be used")
+                    response_data['tts_status'] = 'elevenlabs_failed'
                 
                 return response_data
                 
@@ -358,7 +363,11 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Add TTS audio if available
                 if tts_audio:
+                    print("Whisper: ElevenLabs TTS audio generated successfully")
                     response_data.update(tts_audio)
+                else:
+                    print("Whisper: ElevenLabs TTS failed, browser fallback will be used")
+                    response_data['tts_status'] = 'elevenlabs_failed'
                 
                 return response_data
             else:
@@ -464,16 +473,19 @@ Response:"""
     def generate_speech_with_elevenlabs(self, text):
         """Generate speech using ElevenLabs TTS API"""
         try:
+            print(f"ElevenLabs TTS: Starting generation for text length: {len(text)}")
+            
             if not ELEVENLABS_AVAILABLE:
-                print("ElevenLabs not available - requests module missing")
+                print("ElevenLabs TTS: requests module not available")
                 return None
                 
             api_key = os.getenv('ELEVENLABS_API_KEY')
             if not api_key:
-                print("ElevenLabs API key not found")
+                print("ElevenLabs TTS: API key not found in environment variables")
                 return None
             
-            print(f"Generating TTS for text: {text[:50]}...")
+            print(f"ElevenLabs TTS: API key found (first 8 chars): {api_key[:8]}...")
+            print(f"ElevenLabs TTS: Generating for text: {text[:100]}...")
             
             # ElevenLabs API endpoint and voice
             voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice (professional female)
@@ -496,24 +508,36 @@ Response:"""
                 }
             }
             
-            print("Making request to ElevenLabs API...")
-            response = requests.post(url, json=data, headers=headers)
+            print("ElevenLabs TTS: Making API request...")
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            
+            print(f"ElevenLabs TTS: Response status: {response.status_code}")
             
             if response.status_code == 200:
-                print(f"ElevenLabs TTS success - audio size: {len(response.content)} bytes")
+                audio_size = len(response.content)
+                print(f"ElevenLabs TTS: Success - audio size: {audio_size} bytes")
+                
+                if audio_size == 0:
+                    print("ElevenLabs TTS: Warning - empty audio response")
+                    return None
+                
                 # Return base64 encoded audio
                 audio_base64 = base64.b64encode(response.content).decode('utf-8')
+                print(f"ElevenLabs TTS: Base64 encoded audio length: {len(audio_base64)}")
+                
                 return {
                     'audio_data': audio_base64,
                     'audio_format': 'mp3',
                     'content_type': 'audio/mpeg'
                 }
             else:
-                print(f"ElevenLabs TTS error: {response.status_code} - {response.text}")
+                print(f"ElevenLabs TTS: API error {response.status_code}: {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"ElevenLabs TTS exception: {e}")
+            print(f"ElevenLabs TTS: Exception occurred: {type(e).__name__}: {str(e)}")
+            import traceback
+            print(f"ElevenLabs TTS: Full traceback: {traceback.format_exc()}")
             return None
 
     def do_GET(self):

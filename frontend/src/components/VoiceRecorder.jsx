@@ -60,11 +60,10 @@ const VoiceRecorder = ({ onTranscript }) => {
           }, 100);
         }
         
-        // Handle transcript
-        if (data.recognized_text) {
-          onTranscript(data.recognized_text);
-        } else if (data.transcript) {
-          onTranscript(data.transcript);
+        // Handle transcript - only pass AI response to chat, not transcript
+        if (data.ai_response) {
+          console.log('VoiceRecorder: Sending AI response to chat:', data.ai_response.substring(0, 50));
+          onTranscript(data.ai_response); // Send AI response to chat
         }
         
         // Display AI response if no audio
@@ -165,6 +164,22 @@ const VoiceRecorder = ({ onTranscript }) => {
     console.error('VoiceRecorder: Audio playback error:', error);
     setPlaying(false);
   };
+
+  // Cleanup audio when component unmounts or chat closes
+  useEffect(() => {
+    return () => {
+      console.log('VoiceRecorder: Cleaning up audio on unmount');
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      setPlaying(false);
+      setAudioUrl(null);
+    };
+  }, []);
 
   useEffect(() => {
     if (audioUrl) {

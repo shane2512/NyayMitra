@@ -377,63 +377,113 @@ Company: _________________    Employee: _________________"""
             
             clauses = {}
             
-            # Method 1: Extract numbered sections (most common format)
-            lines = contract_text.split('\n')
-            current_clause_title = ""
-            current_clause_content = ""
-            clause_number = 0
+            # Method 1: Split by periods first (as requested)
+            sentences = [s.strip() for s in contract_text.split('.') if s.strip()]
             
-            for line in lines:
-                line = line.strip()
-                if not line:
+            # Combine short sentences into meaningful clauses
+            combined_clauses = []
+            current_clause = ""
+            
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if not sentence:
                     continue
+                    
+                # Add sentence to current clause
+                current_clause += sentence + ". "
                 
-                # Check for numbered clause headers: "1.", "2.", "1.1", "Article 1", "Section 1", etc.
-                if (re.match(r'^\d+\.?\s*[A-Z]', line) or 
-                    re.match(r'^(Article|Section|Clause)\s+[IVX\d]+', line, re.IGNORECASE) or
-                    re.match(r'^\d+\.\d+', line)):
+                # Check if this completes a clause (minimum 100 characters for substantial content)
+                if len(current_clause) >= 100:
+                    # Check if it contains legal keywords
+                    if any(keyword in current_clause.lower() for keyword in legal_clause_keywords):
+                        combined_clauses.append(current_clause.strip())
+                        current_clause = ""
+                    # Or if it ends with common clause endings
+                    elif any(ending in current_clause.lower() for ending in ['agreement', 'contract', 'provision', 'clause', 'section']):
+                        combined_clauses.append(current_clause.strip())
+                        current_clause = ""
+            
+            # Add remaining content as final clause if substantial
+            if current_clause.strip() and len(current_clause.strip()) >= 100:
+                combined_clauses.append(current_clause.strip())
+            
+            # Create numbered clauses from combined content
+            for i, clause_content in enumerate(combined_clauses, 1):
+                if len(clause_content) > 100:  # Ensure substantial content
+                    # Try to extract a title from the first part of the clause
+                    first_sentence = clause_content.split('.')[0]
+                    if len(first_sentence) < 80:  # Short enough to be a title
+                        clause_title = f"Clause {i}: {first_sentence}"
+                    else:
+                        # Identify clause type by keywords
+                        clause_type = "General Provision"
+                        for keyword in legal_clause_keywords:
+                            if keyword in clause_content.lower():
+                                clause_type = keyword.title().replace('_', ' ')
+                                break
+                        clause_title = f"Clause {i}: {clause_type}"
                     
-                    # Save previous clause if it exists
-                    if current_clause_title and current_clause_content:
-                        full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
-                        if len(full_clause) > 100:  # Reasonable clause length
-                            clauses[current_clause_title] = full_clause
-                    
-                    # Start new clause
-                    current_clause_title = line
-                    current_clause_content = ""
-                    clause_number += 1
+                    clauses[clause_title] = clause_content
+            
+            # Fallback Method 2: Extract numbered sections if period method yields too few clauses
+            if len(clauses) < 3:
+                print("Period-based extraction yielded few clauses, trying structured extraction...")
+                lines = contract_text.split('\n')
+                current_clause_title = ""
+                current_clause_content = ""
+                clause_number = 0
                 
-                # Check for titled sections (ALL CAPS or Title Case)
-                elif (re.match(r'^[A-Z][A-Z\s]{10,}$', line) or  # ALL CAPS titles
-                      re.match(r'^[A-Z][a-z]+(\s+[A-Z][a-z]*)*\s*$', line)):  # Title Case
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
                     
-                    # Save previous clause
-                    if current_clause_title and current_clause_content:
-                        full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
-                        if len(full_clause) > 100:
-                            clauses[current_clause_title] = full_clause
+                    # Check for numbered clause headers: "1.", "2.", "1.1", "Article 1", "Section 1", etc.
+                    if (re.match(r'^\d+\.?\s*[A-Z]', line) or 
+                        re.match(r'^(Article|Section|Clause)\s+[IVX\d]+', line, re.IGNORECASE) or
+                        re.match(r'^\d+\.\d+', line)):
+                        
+                        # Save previous clause if it exists
+                        if current_clause_title and current_clause_content:
+                            full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
+                            if len(full_clause) > 100:  # Reasonable clause length
+                                clauses[current_clause_title] = full_clause
+                        
+                        # Start new clause
+                        current_clause_title = line
+                        current_clause_content = ""
+                        clause_number += 1
                     
-                    # Start new clause with title
-                    current_clause_title = line
-                    current_clause_content = ""
-                    clause_number += 1
-                else:
-                    # Add to current clause content
-                    if current_clause_title:
-                        current_clause_content += line + " "
-                    elif clause_number == 0 and len(line) > 50:
-                        # Handle content before first numbered clause
-                        current_clause_title = "Preamble"
-                        current_clause_content = line + " "
+                    # Check for titled sections (ALL CAPS or Title Case)
+                    elif (re.match(r'^[A-Z][A-Z\s]{10,}$', line) or  # ALL CAPS titles
+                          re.match(r'^[A-Z][a-z]+(\s+[A-Z][a-z]*)*\s*$', line)):  # Title Case
+                        
+                        # Save previous clause
+                        if current_clause_title and current_clause_content:
+                            full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
+                            if len(full_clause) > 100:
+                                clauses[current_clause_title] = full_clause
+                        
+                        # Start new clause with title
+                        current_clause_title = line
+                        current_clause_content = ""
+                        clause_number += 1
+                    else:
+                        # Add to current clause content
+                        if current_clause_title:
+                            current_clause_content += line + " "
+                        elif clause_number == 0 and len(line) > 50:
+                            # Handle content before first numbered clause
+                            current_clause_title = "Preamble"
+                            current_clause_content = line + " "
+                
+                # Save the last clause
+                if current_clause_title and current_clause_content:
+                    full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
+                    if len(full_clause) > 100:
+                        clauses[current_clause_title] = full_clause
             
-            # Save the last clause
-            if current_clause_title and current_clause_content:
-                full_clause = f"{current_clause_title}\n{current_clause_content.strip()}"
-                if len(full_clause) > 100:
-                    clauses[current_clause_title] = full_clause
-            
-            # Method 2: If no clear structure found, split by paragraphs and identify by content
+            # Method 3: If still no clear structure found, split by paragraphs and identify by content
             if len(clauses) < 2:
                 paragraphs = [p.strip() for p in contract_text.split('\n\n') if p.strip()]
                 
