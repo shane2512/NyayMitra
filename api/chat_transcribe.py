@@ -95,12 +95,18 @@ class handler(BaseHTTPRequestHandler):
         try:
             print(f"Starting audio transcription, audio size: {len(audio_data)} bytes")
             
-            # Option 1: Try Google Gemini Audio API
+            # Option 1: Try Google Gemini Audio API (prioritize this)
             api_key = os.getenv('GEMINI_API_KEY')
             if api_key:
                 try:
                     print("Attempting Gemini audio transcription...")
-                    return self.transcribe_with_gemini(audio_data, api_key)
+                    result = self.transcribe_with_gemini(audio_data, api_key)
+                    # Only return if successful, otherwise continue to next option
+                    if result.get('status') == 'success' and result.get('method') == 'gemini':
+                        print("Gemini transcription successful!")
+                        return result
+                    else:
+                        print("Gemini transcription failed, trying next option...")
                 except Exception as gemini_error:
                     print(f"Gemini transcription failed: {gemini_error}")
             else:
@@ -111,15 +117,28 @@ class handler(BaseHTTPRequestHandler):
             if openai_key:
                 try:
                     print("Attempting OpenAI Whisper transcription...")
-                    return self.transcribe_with_whisper(audio_data, openai_key)
+                    result = self.transcribe_with_whisper(audio_data, openai_key)
+                    if result.get('status') == 'success':
+                        print("Whisper transcription successful!")
+                        return result
+                    else:
+                        print("Whisper transcription failed, trying next option...")
                 except Exception as whisper_error:
                     print(f"Whisper transcription failed: {whisper_error}")
             else:
                 print("OpenAI API key not found, skipping Whisper transcription")
             
-            # Option 3: Enhanced simulation with explanation
-            print("Using enhanced simulation transcription...")
-            return self.simulate_transcription_with_explanation(audio_data)
+            # Option 3: Return error instead of simulation for testing
+            print("All transcription services failed - returning error for debugging")
+            return {
+                'error': 'All transcription services are currently unavailable. Please check API keys and try again.',
+                'status': 'error',
+                'message': 'Transcription services unavailable. Check GEMINI_API_KEY and OPENAI_API_KEY environment variables.',
+                'available_services': {
+                    'gemini': bool(os.getenv('GEMINI_API_KEY')),
+                    'openai': bool(os.getenv('OPENAI_API_KEY'))
+                }
+            }
             
         except Exception as e:
             print(f"Audio transcription error: {e}")
@@ -180,7 +199,7 @@ class handler(BaseHTTPRequestHandler):
             genai.configure(api_key=api_key)
             
             # Save audio data to temporary file for Gemini processing
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as temp_audio:
                 temp_audio.write(audio_data)
                 temp_audio_path = temp_audio.name
             
@@ -193,23 +212,30 @@ class handler(BaseHTTPRequestHandler):
                 # Use Gemini 1.5 Flash for audio transcription
                 model = genai.GenerativeModel('gemini-1.5-flash')
                 
-                # Create transcription prompt with language specification
-                transcription_prompt = """Please transcribe this audio file accurately in English language only. 
-                The audio contains a user asking questions about legal contracts or legal terms in English.
+                # Enhanced transcription prompt with better instructions
+                transcription_prompt = """Please transcribe this audio file with maximum accuracy. 
                 
-                Important instructions:
-                - Transcribe ONLY in English language
-                - If the speaker used any other language, translate it to English
-                - Provide only the transcribed English text without any additional commentary
-                - If the audio is unclear, provide your best English interpretation
+                CRITICAL INSTRUCTIONS:
+                - Transcribe EXACTLY what the speaker said word-for-word
+                - Do NOT interpret, summarize, or change the meaning
+                - If the audio is unclear, use [unclear] for that part
+                - Maintain natural speech patterns and filler words if present
+                - Output ONLY the transcribed text, no additional commentary
+                - Focus on accuracy over formality
                 
-                English transcription:"""
+                Transcription:"""
                 
                 # Generate transcription
                 print("Generating transcription with Gemini...")
                 response = model.generate_content([transcription_prompt, audio_file])
                 transcript = response.text.strip()
-                print(f"Transcription successful: {transcript[:50]}...")
+                
+                # Clean up the transcript (remove any extra formatting)
+                if transcript.startswith('"') and transcript.endswith('"'):
+                    transcript = transcript[1:-1]
+                
+                print(f"Raw Gemini response: {transcript}")
+                print(f"Cleaned transcription: {transcript}")
                 
                 # Clean up temp file
                 os.unlink(temp_audio_path)

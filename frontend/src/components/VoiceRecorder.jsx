@@ -14,26 +14,53 @@ const VoiceRecorder = ({ onTranscript }) => {
     setRecording(true);
     setLoading(false);
     audioChunksRef.current = [];
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorderRef.current = new window.MediaRecorder(stream);
-    mediaRecorderRef.current.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        audioChunksRef.current.push(event.data);
-      }
-    };
-    mediaRecorderRef.current.onstop = async () => {
-      setLoading(true);
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-      // Send audioBlob to backend for transcription
-      const formData = new FormData();
-      formData.append('audio', audioBlob);
-      try {
-        const response = await fetch('/api/chat_transcribe', {
-          method: 'POST',
-          body: formData
-        });
-        const data = await response.json();
-        console.log('VoiceRecorder response:', data); // Debug log
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      // Use better MIME type for better transcription
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+          ? 'audio/webm'
+          : 'audio/wav';
+      
+      console.log('Using MIME type:', mimeType);
+      
+      mediaRecorderRef.current = new window.MediaRecorder(stream, {
+        mimeType: mimeType
+      });
+      
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorderRef.current.onstop = async () => {
+        setLoading(true);
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log('Audio blob created:', audioBlob.size, 'bytes, type:', audioBlob.type);
+        
+        // Send audioBlob to backend for transcription
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.' + (mimeType.includes('webm') ? 'webm' : 'wav'));
+        
+        try {
+          console.log('Sending audio for transcription...');
+          const response = await fetch('/api/chat_transcribe', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await response.json();
+          console.log('VoiceRecorder response:', data); // Debug log
         
         // Handle demo mode messaging
         if (data.demo_mode) {
@@ -134,12 +161,22 @@ const VoiceRecorder = ({ onTranscript }) => {
           console.log('Voice service message:', data.message);
         }
       } catch (e) {
+        console.error('Transcription error:', e);
         // Optionally handle error
       }
       setLoading(false);
+      
+      // Stop all tracks
+      stream.getTracks().forEach(track => track.stop());
     };
+    
     mediaRecorderRef.current.start();
-  };
+  } catch (error) {
+    console.error('Error starting recording:', error);
+    setRecording(false);
+    setLoading(false);
+  }
+};
 
   const stopRecording = () => {
     setRecording(false);
