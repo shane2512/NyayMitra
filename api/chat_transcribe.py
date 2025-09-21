@@ -479,9 +479,9 @@ Response:"""
                 print("ElevenLabs TTS: requests module not available")
                 return None
                 
-            api_key = os.getenv('ELEVENLABS_API_KEY')
+            api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
             if not api_key:
-                print("ElevenLabs TTS: API key not found in environment variables")
+                print("ElevenLabs TTS: API key not found. Checked ELEVEN_API_KEY and ELEVENLABS_API_KEY")
                 return None
             
             print(f"ElevenLabs TTS: API key found (first 8 chars): {api_key[:8]}...")

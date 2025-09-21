@@ -60,10 +60,16 @@ const VoiceRecorder = ({ onTranscript }) => {
           }, 100);
         }
         
-        // Handle transcript - only pass AI response to chat, not transcript
-        if (data.ai_response) {
-          console.log('VoiceRecorder: Sending AI response to chat:', data.ai_response.substring(0, 50));
-          onTranscript(data.ai_response); // Send AI response to chat
+        // Handle voice response - don't send to chat, just display transcript and play audio
+        // The backend already processed everything: transcript → AI response → TTS
+        console.log('VoiceRecorder: Received complete voice response');
+        
+        if (data.transcript) {
+          console.log('VoiceRecorder: User said:', data.transcript);
+          // Just set the transcript for display, don't send to chat
+          if (onTranscript) {
+            onTranscript(data.transcript, data.ai_response, false); // false = don't add to chat
+          }
         }
         
         // Display AI response if no audio

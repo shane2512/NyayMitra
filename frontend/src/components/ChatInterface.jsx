@@ -200,40 +200,67 @@ const ChatInterface = ({ isOpen, onClose, contractContext }) => {
     }
   };
 
-  const handleVoiceTranscript = async (transcript) => {
+  const handleVoiceTranscript = async (transcript, aiResponse, addToChat = true) => {
     setVoiceTranscript(transcript);
-    setAudioLoading(true);
     
-    try {
-      // Send the transcript as a message
-      await sendMessage(transcript);
+    if (addToChat) {
+      // Old behavior - send transcript as message and get AI response
+      setAudioLoading(true);
       
-      // Get voice response
-      const response = await makeAPICallWithRetry(async () => {
-        return await sendVoiceMessage(transcript, sessionId, contractContext);
-      });
+      try {
+        // Send the transcript as a message
+        await sendMessage(transcript);
+        
+        // Get voice response
+        const response = await makeAPICallWithRetry(async () => {
+          return await sendVoiceMessage(transcript, sessionId, contractContext);
+        });
+        
+        if (response.audio_url) {
+          console.log('Received audio_url from backend:', response.audio_url);
+          const fullAudioUrl = response.audio_url.startsWith('http')
+            ? response.audio_url
+            : `${window.location.origin}${response.audio_url}`;
+          console.log('Setting audio URL in <audio>:', fullAudioUrl);
+          setAudioURL(fullAudioUrl);
+        }
+        if (response.answer) {
+          const aiMessage = {
+            id: Date.now() + 2,
+            role: 'assistant',
+            content: response.answer,
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => [...prev, aiMessage]);
+        }
+      } catch (error) {
+        console.error('Voice response error:', error);
+      } finally {
+        setAudioLoading(false);
+      }
+    } else {
+      // New behavior - VoiceRecorder already processed everything
+      console.log('Voice processing complete - adding to chat');
       
-      if (response.audio_url) {
-        console.log('Received audio_url from backend:', response.audio_url);
-        const fullAudioUrl = response.audio_url.startsWith('http')
-          ? response.audio_url
-          : `${window.location.origin}${response.audio_url}`;
-        console.log('Setting audio URL in <audio>:', fullAudioUrl);
-        setAudioURL(fullAudioUrl);
-      }
-      if (response.answer) {
-        const aiMessage = {
-          id: Date.now() + 2,
-          role: 'assistant',
-          content: response.answer,
-          timestamp: new Date().toISOString()
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      }
-    } catch (error) {
-      console.error('Error processing voice:', error);
-    } finally {
-      setAudioLoading(false);
+      // Add user message (transcript) to chat
+      const userMessage = {
+        id: Date.now(),
+        role: 'user', 
+        content: transcript,
+        timestamp: new Date().toISOString(),
+        isVoice: true
+      };
+      
+      // Add AI response to chat
+      const aiMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: aiResponse,
+        timestamp: new Date().toISOString(),
+        isVoiceResponse: true
+      };
+      
+      setMessages(prev => [...prev, userMessage, aiMessage]);
     }
   };
 
