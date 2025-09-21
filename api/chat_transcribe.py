@@ -108,7 +108,8 @@ class handler(BaseHTTPRequestHandler):
                     else:
                         print("Gemini transcription failed, trying next option...")
                 except Exception as gemini_error:
-                    print(f"Gemini transcription failed: {gemini_error}")
+                    print(f"Gemini transcription failed with error: {gemini_error}")
+                    # Continue to next option instead of returning error
             else:
                 print("Gemini API key not found, skipping Gemini transcription")
             
@@ -128,17 +129,16 @@ class handler(BaseHTTPRequestHandler):
             else:
                 print("OpenAI API key not found, skipping Whisper transcription")
             
-            # Option 3: Return error instead of simulation for testing
-            print("All transcription services failed - returning error for debugging")
-            return {
-                'error': 'All transcription services are currently unavailable. Please check API keys and try again.',
-                'status': 'error',
-                'message': 'Transcription services unavailable. Check GEMINI_API_KEY and OPENAI_API_KEY environment variables.',
-                'available_services': {
-                    'gemini': bool(os.getenv('GEMINI_API_KEY')),
-                    'openai': bool(os.getenv('OPENAI_API_KEY'))
-                }
+            # Option 3: Temporary fallback for testing with debugging info
+            print("All transcription services failed - using temporary simulation with debug info")
+            result = self.simulate_transcription_with_explanation(audio_data)
+            result['debug_info'] = {
+                'gemini_api_available': bool(os.getenv('GEMINI_API_KEY')),
+                'openai_api_available': bool(os.getenv('OPENAI_API_KEY')),
+                'audio_size': len(audio_data),
+                'note': 'Using simulation while debugging transcription services'
             }
+            return result
             
         except Exception as e:
             print(f"Audio transcription error: {e}")
@@ -153,21 +153,21 @@ class handler(BaseHTTPRequestHandler):
         # Analyze audio characteristics for realistic simulation
         audio_length = len(audio_data)
         
-        # Generate contextual simulated transcripts
+        # Generate more realistic simulated transcripts based on common user queries
         if audio_length < 2000:
-            simulated_transcript = "What are the main risks I should be aware of in this contract?"
+            simulated_transcript = "Tell me about some legal laws"
         elif audio_length < 5000:
-            simulated_transcript = "Can you help me understand the termination and confidentiality clauses?"
+            simulated_transcript = "Can you explain the main legal concepts I should know about?"
         elif audio_length < 10000:
-            simulated_transcript = "I need help reviewing the intellectual property and non-compete sections of this agreement."
+            simulated_transcript = "What are the important legal principles for contract analysis?"
         else:
-            simulated_transcript = "Please provide a comprehensive analysis of this contract and highlight any potential issues or risks."
+            simulated_transcript = "Give me a comprehensive overview of legal laws and regulations I should be aware of."
         
         # Generate AI response
         ai_response = self.generate_voice_response(simulated_transcript)
         
         # Add helpful explanation about demo mode
-        demo_explanation = " Note: This is a demo response since speech recognition services are currently unavailable. In production, your actual voice would be transcribed and analyzed."
+        demo_explanation = " Note: This is currently using simulated transcription while we debug the audio processing service. Your actual speech will be transcribed once the service is fully operational."
         ai_response += demo_explanation
         
         # Generate TTS audio for the AI response
@@ -181,7 +181,7 @@ class handler(BaseHTTPRequestHandler):
             'status': 'success',
             'method': 'demo_simulation',
             'demo_mode': True,
-            'message': 'Demo mode: Simulated transcription and response. Actual voice recognition coming soon!'
+            'message': 'Demo mode: Simulated transcription while debugging audio service. Real transcription coming soon!'
         }
         
         # Add TTS audio if available
@@ -196,6 +196,7 @@ class handler(BaseHTTPRequestHandler):
     def transcribe_with_gemini(self, audio_data, api_key):
         """Transcribe audio using Google Gemini Audio API"""
         try:
+            print(f"Gemini transcription: Starting with API key: {api_key[:8]}...")
             genai.configure(api_key=api_key)
             
             # Save audio data to temporary file for Gemini processing
@@ -203,11 +204,13 @@ class handler(BaseHTTPRequestHandler):
                 temp_audio.write(audio_data)
                 temp_audio_path = temp_audio.name
             
+            print(f"Gemini transcription: Audio saved to {temp_audio_path}, size: {os.path.getsize(temp_audio_path)} bytes")
+            
             try:
                 # Upload audio file to Gemini
-                print("Uploading audio file to Gemini...")
+                print("Gemini transcription: Uploading audio file to Gemini...")
                 audio_file = genai.upload_file(temp_audio_path)
-                print(f"Audio file uploaded successfully: {audio_file.name}")
+                print(f"Gemini transcription: Upload successful - {audio_file.name}")
                 
                 # Use Gemini 1.5 Flash for audio transcription
                 model = genai.GenerativeModel('gemini-1.5-flash')
@@ -226,7 +229,7 @@ class handler(BaseHTTPRequestHandler):
                 Transcription:"""
                 
                 # Generate transcription
-                print("Generating transcription with Gemini...")
+                print("Gemini transcription: Generating transcription...")
                 response = model.generate_content([transcription_prompt, audio_file])
                 transcript = response.text.strip()
                 
@@ -234,8 +237,8 @@ class handler(BaseHTTPRequestHandler):
                 if transcript.startswith('"') and transcript.endswith('"'):
                     transcript = transcript[1:-1]
                 
-                print(f"Raw Gemini response: {transcript}")
-                print(f"Cleaned transcription: {transcript}")
+                print(f"Gemini transcription: Raw response: {transcript}")
+                print(f"Gemini transcription: Cleaned transcript: {transcript}")
                 
                 # Clean up temp file
                 os.unlink(temp_audio_path)
@@ -244,7 +247,7 @@ class handler(BaseHTTPRequestHandler):
                 ai_response = self.generate_voice_response(transcript)
                 
                 # Generate TTS audio for the AI response
-                print(f"Attempting ElevenLabs TTS for response: {ai_response[:50]}...")
+                print(f"Gemini transcription: Attempting ElevenLabs TTS...")
                 tts_audio = self.generate_speech_with_elevenlabs(ai_response)
                 
                 response_data = {
@@ -257,10 +260,10 @@ class handler(BaseHTTPRequestHandler):
                 
                 # Add TTS audio if available
                 if tts_audio:
-                    print("Gemini: ElevenLabs TTS audio generated successfully")
+                    print("Gemini transcription: ElevenLabs TTS audio generated successfully")
                     response_data.update(tts_audio)
                 else:
-                    print("Gemini: ElevenLabs TTS failed, browser fallback will be used")
+                    print("Gemini transcription: ElevenLabs TTS failed, browser fallback will be used")
                     response_data['tts_status'] = 'elevenlabs_failed'
                 
                 return response_data
@@ -270,14 +273,16 @@ class handler(BaseHTTPRequestHandler):
                 if os.path.exists(temp_audio_path):
                     os.unlink(temp_audio_path)
                     
-                print(f"Gemini audio processing error: {gemini_error}")
+                print(f"Gemini transcription: Audio processing error: {gemini_error}")
+                print(f"Gemini transcription: Error type: {type(gemini_error).__name__}")
                 
-                # Fallback to simulation if Gemini fails
-                return self.simulate_transcription_fallback(audio_data, str(gemini_error))
+                # Return error details instead of falling back
+                raise Exception(f"Gemini audio API error: {str(gemini_error)}")
                 
         except Exception as e:
-            print(f"Gemini transcription setup error: {e}")
-            return self.simulate_transcription_fallback(audio_data, str(e))
+            print(f"Gemini transcription: Setup error: {e}")
+            print(f"Gemini transcription: Error type: {type(e).__name__}")
+            raise Exception(f"Gemini transcription failed: {str(e)}")
 
     def simulate_transcription_fallback(self, audio_data, error_reason):
         """Enhanced simulation fallback when Gemini audio fails"""
