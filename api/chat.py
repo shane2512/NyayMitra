@@ -5,6 +5,21 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
 import time
 import hashlib
+import base64
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available in serverless environment
+
+# Try to import ElevenLabs for TTS
+try:
+    import requests
+    ELEVENLABS_AVAILABLE = True
+except ImportError:
+    ELEVENLABS_AVAILABLE = False
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -78,17 +93,21 @@ class handler(BaseHTTPRequestHandler):
             message = data.get('message', '')
             session_id = data.get('session_id', 'default')
             contract_context = data.get('contract_context')
+            voice_mode = data.get('voice_mode', False)
             
             if not message:
                 return {'error': 'No message provided', 'status': 'error'}
             
             # Generate AI response
-            ai_response = self.generate_legal_response(message, contract_context)
+            if voice_mode:
+                ai_response = self.generate_voice_optimized_response(message, contract_context)
+            else:
+                ai_response = self.generate_legal_response(message, contract_context)
             
             # Generate contextual suggestions based on message type
             suggestions = self.generate_suggestions(message, contract_context)
             
-            return {
+            response_data = {
                 'response': ai_response,
                 'session_id': session_id,
                 'suggestions': suggestions,
@@ -96,6 +115,23 @@ class handler(BaseHTTPRequestHandler):
                 'timestamp': time.time(),
                 'message_type': self.classify_message_type(message)
             }
+            
+            # Generate TTS audio for voice mode
+            if voice_mode:
+                print(f"Voice mode detected - generating TTS for response length: {len(ai_response)}")
+                tts_audio = self.generate_speech_with_elevenlabs(ai_response)
+                if tts_audio:
+                    print("Successfully generated ElevenLabs TTS audio")
+                    response_data.update(tts_audio)
+                    response_data['tts_method'] = 'elevenlabs'
+                else:
+                    print("ElevenLabs TTS failed - browser fallback will be used")
+                    response_data['tts_status'] = 'elevenlabs_failed'
+                    response_data['tts_method'] = 'browser_fallback'
+                    # Add helpful info for frontend to handle fallback
+                    response_data['fallback_reason'] = 'ElevenLabs TTS unavailable'
+            
+            return response_data
             
         except Exception as e:
             print(f"Single chat error: {e}")
@@ -190,19 +226,32 @@ class handler(BaseHTTPRequestHandler):
             # Generate voice-optimized response
             ai_response = self.generate_voice_optimized_response(message, contract_context)
             
-            # Generate voice synthesis URL (placeholder for now)
-            audio_url = self.generate_voice_synthesis(ai_response)
+            # Generate ElevenLabs TTS audio for the AI response
+            print(f"Voice message: Attempting ElevenLabs TTS for response...")
+            tts_audio = self.generate_speech_with_elevenlabs(ai_response)
             
-            return {
+            response_data = {
                 'answer': ai_response,
                 'response': ai_response,  # For compatibility
-                'audio_url': audio_url,
                 'transcript': message,
                 'session_id': session_id,
                 'status': 'success',
                 'voice_enabled': True,
                 'suggestions': self.generate_voice_suggestions(message)
             }
+            
+            # Add TTS audio if available
+            if tts_audio:
+                print("Voice message: ElevenLabs TTS audio generated successfully")
+                response_data.update(tts_audio)
+                response_data['audio_url'] = None  # Clear old placeholder
+            else:
+                print("Voice message: ElevenLabs TTS failed, browser fallback will be used")
+                response_data['tts_status'] = 'elevenlabs_failed'
+                response_data['audio_url'] = None
+            
+            return response_data
+            
         except Exception as e:
             return {'error': str(e), 'status': 'error'}
 
@@ -272,21 +321,93 @@ Provide a natural, conversational spoken response:"""
             response += "What specific part would you like me to explain first?"
             return response
 
-    def generate_voice_synthesis(self, text):
-        """Generate voice synthesis URL (placeholder for future implementation)"""
+    def generate_speech_with_elevenlabs(self, text):
+        """Generate speech using ElevenLabs TTS API - primary TTS method"""
         try:
-            # Placeholder for voice synthesis integration
-            # This could integrate with services like:
-            # - Google Text-to-Speech
-            # - Amazon Polly
-            # - OpenAI TTS
-            # - ElevenLabs
+            print(f"ElevenLabs TTS: Starting generation for text length: {len(text)}")
             
-            # For now, return None to indicate text-only response
+            # Check if text is too long (ElevenLabs has limits)
+            if len(text) > 2500:
+                print("ElevenLabs TTS: Text too long, truncating...")
+                text = text[:2400] + "..."
+            
+            if not ELEVENLABS_AVAILABLE:
+                print("ElevenLabs TTS: requests module not available")
+                return None
+                
+            api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
+            if not api_key:
+                print("ElevenLabs TTS: API key not found. Checked ELEVEN_API_KEY and ELEVENLABS_API_KEY")
+                return None
+            
+            print(f"ElevenLabs TTS: API key found (first 8 chars): {api_key[:8]}...")
+            print(f"ElevenLabs TTS: Generating for text: {text[:100]}...")
+            
+            # ElevenLabs API endpoint and voice
+            voice_id = "21m00Tcm4TlvDq8ikWAM"  # Rachel voice (professional female)
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+            
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": api_key
+            }
+            
+            data = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.5,
+                    "similarity_boost": 0.5,
+                    "style": 0.3,
+                    "use_speaker_boost": True
+                }
+            }
+            
+            print("ElevenLabs TTS: Making API request...")
+            response = requests.post(url, json=data, headers=headers, timeout=30)
+            
+            print(f"ElevenLabs TTS: Response status: {response.status_code}")
+            print(f"ElevenLabs TTS: Response headers: {dict(response.headers)}")
+            
+            if response.status_code == 200:
+                audio_size = len(response.content)
+                print(f"ElevenLabs TTS: Success - audio size: {audio_size} bytes")
+                
+                if audio_size == 0:
+                    print("ElevenLabs TTS: Warning - empty audio response")
+                    return None
+                
+                # Return base64 encoded audio
+                audio_base64 = base64.b64encode(response.content).decode('utf-8')
+                print(f"ElevenLabs TTS: Base64 encoded audio length: {len(audio_base64)}")
+                
+                return {
+                    'audio_data': audio_base64,
+                    'audio_format': 'mp3',
+                    'content_type': 'audio/mpeg',
+                    'tts_provider': 'elevenlabs'
+                }
+            elif response.status_code == 401:
+                print("ElevenLabs TTS: Authentication failed - check API key")
+                return None
+            elif response.status_code == 422:
+                print(f"ElevenLabs TTS: Validation error - {response.text}")
+                return None
+            else:
+                print(f"ElevenLabs TTS: API error {response.status_code}: {response.text}")
+                return None
+                
+        except requests.exceptions.Timeout:
+            print("ElevenLabs TTS: Request timeout - API is slow or unavailable")
             return None
-            
+        except requests.exceptions.ConnectionError:
+            print("ElevenLabs TTS: Connection error - check internet connection")
+            return None
         except Exception as e:
-            print(f"Voice synthesis error: {e}")
+            print(f"ElevenLabs TTS: Exception occurred: {type(e).__name__}: {str(e)}")
+            import traceback
+            print(f"ElevenLabs TTS: Full traceback: {traceback.format_exc()}")
             return None
 
     def generate_voice_suggestions(self, message):

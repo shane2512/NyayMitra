@@ -7,6 +7,13 @@ from http.server import BaseHTTPRequestHandler
 import cgi
 import io
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available in serverless environment
+
 # Try to import ElevenLabs for TTS
 try:
     import requests
@@ -100,26 +107,11 @@ class handler(BaseHTTPRequestHandler):
             print(f"  - GEMINI_API_KEY: {'Yes' if os.getenv('GEMINI_API_KEY') else 'No'}")
             print(f"  - OPENAI_API_KEY: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
             
-            # Option 1: Try ElevenLabs Speech-to-Text API
-            eleven_api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
-            if eleven_api_key:
-                try:
-                    print("=== ATTEMPTING ELEVENLABS STT ===")
-                    result = self.transcribe_with_elevenlabs(audio_data, eleven_api_key)
-                    if result.get('status') == 'success' and result.get('method') == 'elevenlabs_stt':
-                        print("=== ELEVENLABS STT SUCCESS ===")
-                        return result
-                    else:
-                        print("=== ELEVENLABS STT FAILED - TRYING NEXT ===")
-                        print(f"Result status: {result.get('status')}")
-                        print(f"Result method: {result.get('method')}")
-                except Exception as eleven_error:
-                    print(f"=== ELEVENLABS STT ERROR: {eleven_error} ===")
-                    # Continue to next option instead of returning error
-            else:
-                print("=== ELEVENLABS API KEY NOT FOUND ===")
+            # Note: Browser-based Web Speech API is now the primary transcription method
+            # This backend transcription is kept as fallback only for non-browser uploads
+            print("Backend transcription fallback - browser transcription is preferred")
             
-            # Option 2: Try Google Gemini Audio API
+            # Option 1: Try Google Gemini Audio API
             api_key = os.getenv('GEMINI_API_KEY')
             if api_key:
                 try:
