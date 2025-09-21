@@ -7,13 +7,6 @@ from http.server import BaseHTTPRequestHandler
 import cgi
 import io
 
-# Try to import speech recognition libraries
-try:
-    import speech_recognition as sr
-    SPEECH_RECOGNITION_AVAILABLE = True
-except ImportError:
-    SPEECH_RECOGNITION_AVAILABLE = False
-
 # Try to import ElevenLabs for TTS
 try:
     import requests
@@ -101,30 +94,13 @@ class handler(BaseHTTPRequestHandler):
         """Transcribe audio using available services with intelligent fallbacks"""
         try:
             print(f"Starting audio transcription, audio size: {len(audio_data)} bytes")
-            print(f"Available libraries check:")
-            print(f"  - speech_recognition: {'Yes' if SPEECH_RECOGNITION_AVAILABLE else 'No'}")
             print(f"Available API keys check:")
             print(f"  - ELEVEN_API_KEY: {'Yes' if os.getenv('ELEVEN_API_KEY') else 'No'}")
             print(f"  - ELEVENLABS_API_KEY: {'Yes' if os.getenv('ELEVENLABS_API_KEY') else 'No'}")
             print(f"  - GEMINI_API_KEY: {'Yes' if os.getenv('GEMINI_API_KEY') else 'No'}")
             print(f"  - OPENAI_API_KEY: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
             
-            # Option 1: Try Speech Recognition Library (Most Reliable)
-            if SPEECH_RECOGNITION_AVAILABLE:
-                try:
-                    print("=== ATTEMPTING SPEECH RECOGNITION LIBRARY ===")
-                    result = self.transcribe_with_speech_recognition(audio_data)
-                    if result.get('status') == 'success' and result.get('method') == 'speech_recognition':
-                        print("=== SPEECH RECOGNITION SUCCESS ===")
-                        return result
-                    else:
-                        print("=== SPEECH RECOGNITION FAILED - TRYING NEXT ===")
-                except Exception as sr_error:
-                    print(f"=== SPEECH RECOGNITION ERROR: {sr_error} ===")
-            else:
-                print("=== SPEECH RECOGNITION LIBRARY NOT AVAILABLE ===")
-            
-            # Option 2: Try ElevenLabs Speech-to-Text API
+            # Option 1: Try ElevenLabs Speech-to-Text API
             eleven_api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
             if eleven_api_key:
                 try:
@@ -181,7 +157,6 @@ class handler(BaseHTTPRequestHandler):
             print("All transcription services failed - using temporary simulation with debug info")
             result = self.simulate_transcription_with_explanation(audio_data)
             result['debug_info'] = {
-                'speech_recognition_available': SPEECH_RECOGNITION_AVAILABLE,
                 'elevenlabs_api_available': bool(os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')),
                 'gemini_api_available': bool(os.getenv('GEMINI_API_KEY')),
                 'openai_api_available': bool(os.getenv('OPENAI_API_KEY')),
@@ -398,87 +373,6 @@ class handler(BaseHTTPRequestHandler):
             response_data.update(tts_audio)
         
         return response_data
-
-    def transcribe_with_speech_recognition(self, audio_data):
-        """Transcribe audio using speech_recognition library with Google Speech Recognition"""
-        try:
-            print(f"Speech Recognition: Starting transcription, audio size: {len(audio_data)} bytes")
-            
-            if not SPEECH_RECOGNITION_AVAILABLE:
-                raise Exception("speech_recognition library not available")
-            
-            # Save audio data to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as temp_audio:
-                temp_audio.write(audio_data)
-                temp_audio_path = temp_audio.name
-            
-            print(f"Speech Recognition: Audio saved to {temp_audio_path}")
-            
-            try:
-                # Initialize recognizer
-                recognizer = sr.Recognizer()
-                
-                # Load audio file
-                with sr.AudioFile(temp_audio_path) as source:
-                    print("Speech Recognition: Loading audio file...")
-                    # Adjust for ambient noise
-                    recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                    # Record audio
-                    audio = recognizer.record(source)
-                    print("Speech Recognition: Audio loaded successfully")
-                
-                # Recognize speech using Google Speech Recognition
-                print("Speech Recognition: Calling Google Speech Recognition API...")
-                transcript = recognizer.recognize_google(audio, language='en-US')
-                print(f"Speech Recognition: Successfully transcribed: '{transcript}'")
-                
-                # Clean up temp file
-                os.unlink(temp_audio_path)
-                
-                if not transcript or not transcript.strip():
-                    raise Exception("Empty transcript received")
-                
-                transcript = transcript.strip()
-                
-                # Generate AI response to the transcribed text
-                ai_response = self.generate_voice_response(transcript)
-                
-                # Generate TTS audio for the AI response
-                print(f"Speech Recognition: Attempting ElevenLabs TTS for response...")
-                tts_audio = self.generate_speech_with_elevenlabs(ai_response)
-                
-                response_data = {
-                    'transcript': transcript,
-                    'ai_response': ai_response,
-                    'confidence': 0.95,  # Google Speech Recognition is generally very accurate
-                    'status': 'success',
-                    'method': 'speech_recognition'
-                }
-                
-                # Add TTS audio if available
-                if tts_audio:
-                    print("Speech Recognition: ElevenLabs TTS audio generated successfully")
-                    response_data.update(tts_audio)
-                else:
-                    print("Speech Recognition: ElevenLabs TTS failed, browser fallback will be used")
-                    response_data['tts_status'] = 'elevenlabs_failed'
-                
-                return response_data
-                
-            except sr.UnknownValueError:
-                print("Speech Recognition: Could not understand audio")
-                raise Exception("Could not understand the audio - please speak more clearly")
-            except sr.RequestError as e:
-                print(f"Speech Recognition: Google API error: {e}")
-                raise Exception(f"Google Speech Recognition API error: {e}")
-            finally:
-                # Clean up temp file if it still exists
-                if os.path.exists(temp_audio_path):
-                    os.unlink(temp_audio_path)
-                    
-        except Exception as e:
-            print(f"Speech Recognition: Error occurred: {type(e).__name__}: {str(e)}")
-            raise Exception(f"Speech Recognition failed: {str(e)}")
 
     def transcribe_with_elevenlabs(self, audio_data, api_key):
         """Transcribe audio using ElevenLabs Speech-to-Text API"""

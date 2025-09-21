@@ -4,4 +4,3 @@ python-dotenv==1.0.0
 requests==2.31.0
 pydantic==2.5.2
 elevenlabs==0.2.26
-SpeechRecognition==3.10.0
