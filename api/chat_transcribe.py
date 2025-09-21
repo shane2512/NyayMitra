@@ -94,22 +94,30 @@ class handler(BaseHTTPRequestHandler):
         """Transcribe audio using available services with intelligent fallbacks"""
         try:
             print(f"Starting audio transcription, audio size: {len(audio_data)} bytes")
+            print(f"Available API keys check:")
+            print(f"  - ELEVEN_API_KEY: {'Yes' if os.getenv('ELEVEN_API_KEY') else 'No'}")
+            print(f"  - ELEVENLABS_API_KEY: {'Yes' if os.getenv('ELEVENLABS_API_KEY') else 'No'}")
+            print(f"  - GEMINI_API_KEY: {'Yes' if os.getenv('GEMINI_API_KEY') else 'No'}")
+            print(f"  - OPENAI_API_KEY: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
             
             # Option 1: Try ElevenLabs Speech-to-Text API (New Priority)
             eleven_api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
             if eleven_api_key:
                 try:
-                    print("Attempting ElevenLabs Speech-to-Text transcription...")
+                    print("=== ATTEMPTING ELEVENLABS STT ===")
                     result = self.transcribe_with_elevenlabs(audio_data, eleven_api_key)
                     if result.get('status') == 'success' and result.get('method') == 'elevenlabs_stt':
-                        print("ElevenLabs STT transcription successful!")
+                        print("=== ELEVENLABS STT SUCCESS ===")
                         return result
                     else:
-                        print("ElevenLabs STT transcription failed, trying next option...")
+                        print("=== ELEVENLABS STT FAILED - TRYING NEXT ===")
+                        print(f"Result status: {result.get('status')}")
+                        print(f"Result method: {result.get('method')}")
                 except Exception as eleven_error:
-                    print(f"ElevenLabs STT transcription failed with error: {eleven_error}")
+                    print(f"=== ELEVENLABS STT ERROR: {eleven_error} ===")
+                    # Continue to next option instead of returning error
             else:
-                print("ElevenLabs API key not found, skipping ElevenLabs STT")
+                print("=== ELEVENLABS API KEY NOT FOUND ===")
             
             # Option 2: Try Google Gemini Audio API
             api_key = os.getenv('GEMINI_API_KEY')
@@ -375,89 +383,110 @@ class handler(BaseHTTPRequestHandler):
                 print("ElevenLabs STT: requests module not available")
                 raise Exception("Requests module not available for ElevenLabs API")
             
-            # Save audio data to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as temp_audio:
-                temp_audio.write(audio_data)
-                temp_audio_path = temp_audio.name
-            
-            print(f"ElevenLabs STT: Audio saved to {temp_audio_path}, size: {os.path.getsize(temp_audio_path)} bytes")
-            
+            # Save audio data to temporary file - try multiple formats
+            temp_audio_path = None
             try:
-                # ElevenLabs Speech-to-Text API endpoint
+                # Try saving as MP3 first (more widely supported)
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                    temp_audio.write(audio_data)
+                    temp_audio_path = temp_audio.name
+                
+                print(f"ElevenLabs STT: Audio saved to {temp_audio_path}, size: {os.path.getsize(temp_audio_path)} bytes")
+                
+                # ElevenLabs Speech-to-Text API endpoint - check if this is correct
                 url = "https://api.elevenlabs.io/v1/speech-to-text"
                 
                 headers = {
-                    "xi-api-key": api_key
+                    "xi-api-key": api_key,
+                    "accept": "application/json"
                 }
                 
                 # Prepare the file for upload
                 with open(temp_audio_path, 'rb') as audio_file:
                     files = {
-                        'audio': ('recording.webm', audio_file, 'audio/webm')
+                        'audio': ('recording.mp3', audio_file, 'audio/mpeg')
                     }
                     
+                    # Simplified parameters - remove potentially unsupported ones
                     data = {
-                        'model': 'eleven_whisper_v2',  # ElevenLabs STT model
-                        'language': 'en'  # Force English language
+                        'language': 'en'  # Just specify language
                     }
                     
                     print("ElevenLabs STT: Making API request...")
+                    print(f"ElevenLabs STT: URL: {url}")
+                    print(f"ElevenLabs STT: Headers: {headers}")
+                    print(f"ElevenLabs STT: Data: {data}")
+                    
                     response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
                 
-                # Clean up temp file
-                os.unlink(temp_audio_path)
-                
                 print(f"ElevenLabs STT: Response status: {response.status_code}")
+                print(f"ElevenLabs STT: Response headers: {dict(response.headers)}")
+                print(f"ElevenLabs STT: Response text: {response.text[:500]}...")
                 
                 if response.status_code == 200:
-                    result = response.json()
-                    transcript = result.get('text', '').strip()
-                    
-                    print(f"ElevenLabs STT: Raw response: {transcript}")
-                    
-                    if not transcript:
-                        raise Exception("Empty transcript received from ElevenLabs STT")
-                    
-                    # Generate AI response to the transcribed text
-                    ai_response = self.generate_voice_response(transcript)
-                    
-                    # Generate TTS audio for the AI response
-                    print(f"ElevenLabs STT: Attempting ElevenLabs TTS for response...")
-                    tts_audio = self.generate_speech_with_elevenlabs(ai_response)
-                    
-                    response_data = {
-                        'transcript': transcript,
-                        'ai_response': ai_response,
-                        'confidence': result.get('confidence', 0.95),
-                        'status': 'success',
-                        'method': 'elevenlabs_stt'
-                    }
-                    
-                    # Add TTS audio if available
-                    if tts_audio:
-                        print("ElevenLabs STT: ElevenLabs TTS audio generated successfully")
-                        response_data.update(tts_audio)
-                    else:
-                        print("ElevenLabs STT: ElevenLabs TTS failed, browser fallback will be used")
-                        response_data['tts_status'] = 'elevenlabs_failed'
-                    
-                    return response_data
-                    
+                    try:
+                        result = response.json()
+                        print(f"ElevenLabs STT: JSON response: {result}")
+                        
+                        transcript = result.get('text', '').strip()
+                        
+                        if not transcript:
+                            print("ElevenLabs STT: Empty transcript in response")
+                            raise Exception("Empty transcript received from ElevenLabs STT")
+                        
+                        print(f"ElevenLabs STT: Successfully transcribed: '{transcript}'")
+                        
+                        # Generate AI response to the transcribed text
+                        ai_response = self.generate_voice_response(transcript)
+                        
+                        # Generate TTS audio for the AI response
+                        print(f"ElevenLabs STT: Attempting ElevenLabs TTS for response...")
+                        tts_audio = self.generate_speech_with_elevenlabs(ai_response)
+                        
+                        response_data = {
+                            'transcript': transcript,
+                            'ai_response': ai_response,
+                            'confidence': result.get('confidence', 0.95),
+                            'status': 'success',
+                            'method': 'elevenlabs_stt'
+                        }
+                        
+                        # Add TTS audio if available
+                        if tts_audio:
+                            print("ElevenLabs STT: ElevenLabs TTS audio generated successfully")
+                            response_data.update(tts_audio)
+                        else:
+                            print("ElevenLabs STT: ElevenLabs TTS failed, browser fallback will be used")
+                            response_data['tts_status'] = 'elevenlabs_failed'
+                        
+                        return response_data
+                        
+                    except json.JSONDecodeError as json_error:
+                        print(f"ElevenLabs STT: JSON decode error: {json_error}")
+                        print(f"ElevenLabs STT: Raw response: {response.text}")
+                        raise Exception(f"Invalid JSON response from ElevenLabs STT: {json_error}")
+                        
+                elif response.status_code == 401:
+                    print("ElevenLabs STT: Authentication failed - check API key")
+                    raise Exception("ElevenLabs STT authentication failed - invalid API key")
+                elif response.status_code == 404:
+                    print("ElevenLabs STT: Endpoint not found - API might have changed")
+                    raise Exception("ElevenLabs STT endpoint not found - API might have changed")
                 else:
                     error_text = response.text
                     print(f"ElevenLabs STT: API error {response.status_code}: {error_text}")
                     raise Exception(f"ElevenLabs STT API error: {response.status_code} - {error_text}")
                     
-            except Exception as api_error:
-                # Clean up temp file on error
-                if os.path.exists(temp_audio_path):
+            finally:
+                # Clean up temp file
+                if temp_audio_path and os.path.exists(temp_audio_path):
                     os.unlink(temp_audio_path)
+                    print("ElevenLabs STT: Cleaned up temporary file")
                     
-                print(f"ElevenLabs STT: API processing error: {api_error}")
-                raise Exception(f"ElevenLabs STT API error: {str(api_error)}")
-                
         except Exception as e:
-            print(f"ElevenLabs STT: Setup error: {e}")
+            print(f"ElevenLabs STT: Error occurred: {type(e).__name__}: {str(e)}")
+            import traceback
+            print(f"ElevenLabs STT: Full traceback: {traceback.format_exc()}")
             raise Exception(f"ElevenLabs STT failed: {str(e)}")
 
     def transcribe_with_whisper(self, audio_data, api_key):
