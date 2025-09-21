@@ -95,7 +95,23 @@ class handler(BaseHTTPRequestHandler):
         try:
             print(f"Starting audio transcription, audio size: {len(audio_data)} bytes")
             
-            # Option 1: Try Google Gemini Audio API (prioritize this)
+            # Option 1: Try ElevenLabs Speech-to-Text API (New Priority)
+            eleven_api_key = os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')
+            if eleven_api_key:
+                try:
+                    print("Attempting ElevenLabs Speech-to-Text transcription...")
+                    result = self.transcribe_with_elevenlabs(audio_data, eleven_api_key)
+                    if result.get('status') == 'success' and result.get('method') == 'elevenlabs_stt':
+                        print("ElevenLabs STT transcription successful!")
+                        return result
+                    else:
+                        print("ElevenLabs STT transcription failed, trying next option...")
+                except Exception as eleven_error:
+                    print(f"ElevenLabs STT transcription failed with error: {eleven_error}")
+            else:
+                print("ElevenLabs API key not found, skipping ElevenLabs STT")
+            
+            # Option 2: Try Google Gemini Audio API
             api_key = os.getenv('GEMINI_API_KEY')
             if api_key:
                 try:
@@ -133,6 +149,7 @@ class handler(BaseHTTPRequestHandler):
             print("All transcription services failed - using temporary simulation with debug info")
             result = self.simulate_transcription_with_explanation(audio_data)
             result['debug_info'] = {
+                'elevenlabs_api_available': bool(os.getenv('ELEVEN_API_KEY') or os.getenv('ELEVENLABS_API_KEY')),
                 'gemini_api_available': bool(os.getenv('GEMINI_API_KEY')),
                 'openai_api_available': bool(os.getenv('OPENAI_API_KEY')),
                 'audio_size': len(audio_data),
@@ -348,6 +365,100 @@ class handler(BaseHTTPRequestHandler):
             response_data.update(tts_audio)
         
         return response_data
+
+    def transcribe_with_elevenlabs(self, audio_data, api_key):
+        """Transcribe audio using ElevenLabs Speech-to-Text API"""
+        try:
+            print(f"ElevenLabs STT: Starting transcription with API key: {api_key[:8]}...")
+            
+            if not ELEVENLABS_AVAILABLE:
+                print("ElevenLabs STT: requests module not available")
+                raise Exception("Requests module not available for ElevenLabs API")
+            
+            # Save audio data to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as temp_audio:
+                temp_audio.write(audio_data)
+                temp_audio_path = temp_audio.name
+            
+            print(f"ElevenLabs STT: Audio saved to {temp_audio_path}, size: {os.path.getsize(temp_audio_path)} bytes")
+            
+            try:
+                # ElevenLabs Speech-to-Text API endpoint
+                url = "https://api.elevenlabs.io/v1/speech-to-text"
+                
+                headers = {
+                    "xi-api-key": api_key
+                }
+                
+                # Prepare the file for upload
+                with open(temp_audio_path, 'rb') as audio_file:
+                    files = {
+                        'audio': ('recording.webm', audio_file, 'audio/webm')
+                    }
+                    
+                    data = {
+                        'model': 'eleven_whisper_v2',  # ElevenLabs STT model
+                        'language': 'en'  # Force English language
+                    }
+                    
+                    print("ElevenLabs STT: Making API request...")
+                    response = requests.post(url, headers=headers, files=files, data=data, timeout=30)
+                
+                # Clean up temp file
+                os.unlink(temp_audio_path)
+                
+                print(f"ElevenLabs STT: Response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    transcript = result.get('text', '').strip()
+                    
+                    print(f"ElevenLabs STT: Raw response: {transcript}")
+                    
+                    if not transcript:
+                        raise Exception("Empty transcript received from ElevenLabs STT")
+                    
+                    # Generate AI response to the transcribed text
+                    ai_response = self.generate_voice_response(transcript)
+                    
+                    # Generate TTS audio for the AI response
+                    print(f"ElevenLabs STT: Attempting ElevenLabs TTS for response...")
+                    tts_audio = self.generate_speech_with_elevenlabs(ai_response)
+                    
+                    response_data = {
+                        'transcript': transcript,
+                        'ai_response': ai_response,
+                        'confidence': result.get('confidence', 0.95),
+                        'status': 'success',
+                        'method': 'elevenlabs_stt'
+                    }
+                    
+                    # Add TTS audio if available
+                    if tts_audio:
+                        print("ElevenLabs STT: ElevenLabs TTS audio generated successfully")
+                        response_data.update(tts_audio)
+                    else:
+                        print("ElevenLabs STT: ElevenLabs TTS failed, browser fallback will be used")
+                        response_data['tts_status'] = 'elevenlabs_failed'
+                    
+                    return response_data
+                    
+                else:
+                    error_text = response.text
+                    print(f"ElevenLabs STT: API error {response.status_code}: {error_text}")
+                    raise Exception(f"ElevenLabs STT API error: {response.status_code} - {error_text}")
+                    
+            except Exception as api_error:
+                # Clean up temp file on error
+                if os.path.exists(temp_audio_path):
+                    os.unlink(temp_audio_path)
+                    
+                print(f"ElevenLabs STT: API processing error: {api_error}")
+                raise Exception(f"ElevenLabs STT API error: {str(api_error)}")
+                
+        except Exception as e:
+            print(f"ElevenLabs STT: Setup error: {e}")
+            raise Exception(f"ElevenLabs STT failed: {str(e)}")
 
     def transcribe_with_whisper(self, audio_data, api_key):
         """Transcribe using OpenAI Whisper API"""
